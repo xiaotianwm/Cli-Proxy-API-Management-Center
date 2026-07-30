@@ -8,6 +8,7 @@ import {
   withoutDisableAllModelsRule,
 } from '@/components/providers/utils';
 import type { GeminiKeyConfig, ModelAlias, OpenAIProviderConfig, ProviderKeyConfig } from '@/types';
+import type { UpstreamBillingProbePayload } from '@/services/api/providers';
 import {
   apiKeyFunToResource,
   claudeApiToResource,
@@ -87,6 +88,10 @@ export interface UseProviderWorkbenchResult {
   toggleDisabled: (resource: ProviderResource, disabled: boolean) => Promise<void>;
   mutating: boolean;
   refreshSnapshot: () => void;
+}
+
+interface RefetchOptions {
+  skipUpstreamBillingProbe?: boolean;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -402,16 +407,24 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
 
   const connected = connectionStatus === 'connected';
 
-  const refetch = useCallback(async () => {
+  const refetch = useCallback(async (options: RefetchOptions = {}) => {
     setIsFetching(true);
     setErrorMessage(null);
     try {
+      const configPromise = fetchConfig(true);
+      const vertexPromise = providersApi.getVertexConfigs();
+      const openaiPromise = providersApi.getOpenAIProviders();
+      const billingPromise: Promise<UpstreamBillingProbePayload | undefined> =
+        options.skipUpstreamBillingProbe
+          ? Promise.resolve(undefined)
+          : providersApi.getUpstreamBillingProbe();
+
       const [configResult, vertexResult, openaiResult, billingResult] = await Promise.allSettled([
-        fetchConfig(true),
-        providersApi.getVertexConfigs(),
-        providersApi.getOpenAIProviders(),
-        providersApi.getUpstreamBillingProbe(),
-      ]);
+        configPromise,
+        vertexPromise,
+        openaiPromise,
+        billingPromise,
+      ] as const);
       if (configResult.status !== 'fulfilled') {
         throw configResult.reason;
       }
@@ -421,7 +434,7 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
       if (openaiResult.status === 'fulfilled') {
         updateConfigValue('openai-compatibility', openaiResult.value || []);
       }
-      if (billingResult.status === 'fulfilled') {
+      if (billingResult?.status === 'fulfilled' && billingResult.value) {
         setUpstreamBillingProbeIntervalMinutes(
           billingResult.value?.settings?.['interval-minutes'] ?? 30
         );
@@ -439,14 +452,14 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
     async (intervalMinutes: number) => {
       await providersApi.updateUpstreamBillingProbeSettings(intervalMinutes);
       setUpstreamBillingProbeIntervalMinutes(intervalMinutes);
-      await refetch();
+      await refetch({ skipUpstreamBillingProbe: true });
     },
     [refetch]
   );
 
   const refreshUpstreamBillingProbe = useCallback(async () => {
     await providersApi.refreshUpstreamBillingProbe();
-    await refetch();
+    await refetch({ skipUpstreamBillingProbe: true });
   }, [refetch]);
 
   const refreshSnapshot = useCallback(() => {
