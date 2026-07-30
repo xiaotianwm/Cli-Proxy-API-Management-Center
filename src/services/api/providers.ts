@@ -11,12 +11,19 @@ import type {
   ProviderKeyConfig,
   ApiKeyEntry,
   ModelAlias,
+  UpstreamBillingProbeEntry,
 } from '@/types';
 
 const serializeHeaders = (headers?: Record<string, string>) =>
   headers && Object.keys(headers).length ? headers : undefined;
 
-const RESPONSE_ONLY_FIELDS = ['auth-index'] as const;
+const RESPONSE_ONLY_FIELDS = ['auth-index', 'upstream-billing'] as const;
+
+export interface UpstreamBillingProbePayload {
+  settings: { 'interval-minutes': number };
+  'updated-at'?: string;
+  items: UpstreamBillingProbeEntry[];
+}
 
 const PROVIDER_COMMON_KEY_FIELDS = [
   'api-key',
@@ -588,4 +595,15 @@ export const providersApi = {
 
   deleteOpenAIProvider: (index: number) =>
     apiClient.delete(`/openai-compatibility?index=${encodeURIComponent(String(index))}`),
+
+  getUpstreamBillingProbe: () =>
+    apiClient.get<UpstreamBillingProbePayload>('/upstream-billing-probe'),
+
+  updateUpstreamBillingProbeSettings: (intervalMinutes: number) =>
+    apiClient.put('/upstream-billing-probe', { 'interval-minutes': intervalMinutes }),
+
+  refreshUpstreamBillingProbe: () =>
+    apiClient.post<Pick<UpstreamBillingProbePayload, 'items' | 'updated-at'>>(
+      '/upstream-billing-probe/refresh'
+    ),
 };

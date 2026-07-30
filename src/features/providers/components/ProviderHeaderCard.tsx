@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { IconLoader2, IconPlus, IconRefreshCw } from '@/components/ui/icons';
+import { IconLoader2, IconPlus, IconRefreshCw, IconSettings } from '@/components/ui/icons';
 import styles from './ProviderHeaderCard.module.scss';
 
 interface ProviderHeaderCardProps {
@@ -16,6 +16,8 @@ interface ProviderHeaderCardProps {
   variant?: 'quickStart';
   onRefresh: () => void;
   onNew: () => void;
+  onSettings?: () => void;
+  settingsDisabled?: boolean;
 }
 
 export function ProviderHeaderCard({
@@ -32,6 +34,8 @@ export function ProviderHeaderCard({
   variant,
   onRefresh,
   onNew,
+  onSettings,
+  settingsDisabled = false,
 }: ProviderHeaderCardProps) {
   const { t } = useTranslation();
   const cardClassName = [styles.card, variant === 'quickStart' ? styles.quickStartCard : '']
@@ -45,6 +49,18 @@ export function ProviderHeaderCard({
           <h1 className={styles.title}>{title ?? t('providersPage.header.title')}</h1>
         </div>
         <div className={styles.actions}>
+          {onSettings ? (
+            <button
+              type="button"
+              className={`${styles.btn} ${styles.btnOutline}`}
+              onClick={onSettings}
+              disabled={settingsDisabled}
+              aria-label={t('providersPage.upstreamBilling.settings')}
+            >
+              <IconSettings size={16} />
+              <span>{t('providersPage.upstreamBilling.settings')}</span>
+            </button>
+          ) : null}
           <button
             type="button"
             className={`${styles.btn} ${styles.btnOutline}`}

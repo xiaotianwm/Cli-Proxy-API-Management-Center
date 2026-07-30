@@ -5,6 +5,7 @@ import type {
   ModelAlias,
   OpenAIProviderConfig,
   ProviderKeyConfig,
+  UpstreamBillingProbeEntry,
 } from '@/types';
 import type { Config } from '@/types/config';
 import { buildHeaderObject } from '@/utils/headers';
@@ -102,6 +103,55 @@ const normalizeAuthIndex = (value: unknown): string | undefined => {
   return trimmed ? trimmed : undefined;
 };
 
+const normalizeNumber = (value: unknown): number | undefined => {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+const normalizeUpstreamBillingEntry = (entry: unknown): UpstreamBillingProbeEntry | null => {
+  if (!isRecord(entry)) return null;
+  const authIndex = normalizeAuthIndex(entry['auth-index']);
+  if (!authIndex) return null;
+  const status = String(entry.status ?? '').trim();
+  if (!status) return null;
+  const result: UpstreamBillingProbeEntry = {
+    'auth-index': authIndex,
+    status,
+  };
+  const provider = normalizePrefix(entry.provider);
+  if (provider) result.provider = provider;
+  const providerName = normalizePrefix(entry['provider-name']);
+  if (providerName) result['provider-name'] = providerName;
+  const baseUrl = normalizePrefix(entry['base-url']);
+  if (baseUrl) result['base-url'] = baseUrl;
+  const preview = normalizePrefix(entry['api-key-preview']);
+  if (preview) result['api-key-preview'] = preview;
+  const observedAt = normalizePrefix(entry['observed-at']);
+  if (observedAt) result['observed-at'] = observedAt;
+
+  const groupRate = normalizeNumber(entry['group-rate-multiplier']);
+  if (groupRate !== undefined) result['group-rate-multiplier'] = groupRate;
+  const userRate = normalizeNumber(entry['user-rate-multiplier']);
+  if (userRate !== undefined) result['user-rate-multiplier'] = userRate;
+  const resolvedRate = normalizeNumber(entry['resolved-rate-multiplier']);
+  if (resolvedRate !== undefined) result['resolved-rate-multiplier'] = resolvedRate;
+  const peakRate = normalizeNumber(entry['peak-rate-multiplier']);
+  if (peakRate !== undefined) result['peak-rate-multiplier'] = peakRate;
+  const appliedPeakRate = normalizeNumber(entry['applied-peak-multiplier']);
+  if (appliedPeakRate !== undefined) result['applied-peak-multiplier'] = appliedPeakRate;
+  const effectiveRate = normalizeNumber(entry['effective-rate-multiplier']);
+  if (effectiveRate !== undefined) result['effective-rate-multiplier'] = effectiveRate;
+  const peakRateEnabled = normalizeBoolean(entry['peak-rate-enabled']);
+  if (peakRateEnabled !== undefined) result['peak-rate-enabled'] = peakRateEnabled;
+  const peakStart = normalizePrefix(entry['peak-start']);
+  if (peakStart) result['peak-start'] = peakStart;
+  const peakEnd = normalizePrefix(entry['peak-end']);
+  if (peakEnd) result['peak-end'] = peakEnd;
+  const timezone = normalizePrefix(entry.timezone);
+  if (timezone) result.timezone = timezone;
+  return result;
+};
+
 const normalizeApiKeyEntry = (entry: unknown): ApiKeyEntry | null => {
   if (entry === undefined || entry === null) return null;
   const record = isRecord(entry) ? entry : null;
@@ -112,6 +162,7 @@ const normalizeApiKeyEntry = (entry: unknown): ApiKeyEntry | null => {
   const proxyUrl = record?.['proxy-url'];
   const weight = readCredentialWeight(record?.weight);
   const authIndex = normalizeAuthIndex(record?.['auth-index']);
+  const upstreamBilling = normalizeUpstreamBillingEntry(record?.['upstream-billing']);
 
   const result: ApiKeyEntry = {
     apiKey: trimmed,
@@ -119,6 +170,7 @@ const normalizeApiKeyEntry = (entry: unknown): ApiKeyEntry | null => {
   };
   if (weight !== undefined) result.weight = weight;
   if (authIndex) result.authIndex = authIndex;
+  if (upstreamBilling) result.upstreamBilling = upstreamBilling;
   return result;
 };
 
@@ -266,6 +318,14 @@ const normalizeOpenAIProvider = (
   if (testModel) result.testModel = String(testModel);
   const authIndex = normalizeAuthIndex(provider['auth-index']);
   if (authIndex) result.authIndex = authIndex;
+  const upstreamBilling = Array.isArray(provider['upstream-billing'])
+    ? provider['upstream-billing']
+        .map((item) => normalizeUpstreamBillingEntry(item))
+        .filter(Boolean)
+    : [];
+  if (upstreamBilling.length) {
+    result.upstreamBilling = upstreamBilling as UpstreamBillingProbeEntry[];
+  }
   if (sourceIndex !== undefined) result.sourceIndex = sourceIndex;
   return result;
 };

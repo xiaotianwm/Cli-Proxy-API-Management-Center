@@ -17,6 +17,28 @@ export interface ApiKeyEntry {
   proxyUrl?: string;
   weight?: number;
   authIndex?: string;
+  upstreamBilling?: UpstreamBillingProbeEntry;
+}
+
+export interface UpstreamBillingProbeEntry {
+  'auth-index': string;
+  provider?: string;
+  'provider-name'?: string;
+  'base-url'?: string;
+  'api-key-preview'?: string;
+  status: string;
+  error?: string;
+  'observed-at'?: string;
+  'group-rate-multiplier'?: number;
+  'user-rate-multiplier'?: number;
+  'resolved-rate-multiplier'?: number;
+  'peak-rate-enabled'?: boolean;
+  'peak-rate-multiplier'?: number;
+  'applied-peak-multiplier'?: number;
+  'effective-rate-multiplier'?: number;
+  'peak-start'?: string;
+  'peak-end'?: string;
+  timezone?: string;
 }
 
 export interface CloakConfig {
@@ -71,5 +93,6 @@ export interface OpenAIProviderConfig {
   authIndex?: string;
   /** Original index in the backend openai-compatibility array. */
   sourceIndex?: number;
+  upstreamBilling?: UpstreamBillingProbeEntry[];
   [key: string]: unknown;
 }

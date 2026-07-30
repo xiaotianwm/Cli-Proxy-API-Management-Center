@@ -1410,6 +1410,7 @@
     "table": {
       "key": "Key",
       "baseUrl": "Base URL",
+      "upstreamRate": "Upstream rate",
       "prefix": "Prefix",
       "models": "Models/Headers",
       "status": "Status",
@@ -1424,6 +1425,13 @@
       "empty": "No resources yet, click \"New\" to add.",
       "filterPlaceholder": "Search keys, URLs, prefixes…",
       "description": "Manage resources under {{route}}"
+    },
+    "upstreamBilling": {
+      "settings": "Rate probe",
+      "intervalMinutes": "Probe interval (minutes)",
+      "intervalHint": "The backend refreshes Sub2API upstream rates on this interval; manual refresh probes immediately.",
+      "saved": "Rate probe settings saved",
+      "invalidInterval": "Interval must be greater than 0"
     },
     "sponsor": {
       "protocolSummary": "Anthropic / OpenAI / Gemini / Codex API (Responses)",
