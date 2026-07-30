@@ -1462,6 +1462,7 @@
     "table": {
       "key": "密钥",
       "baseUrl": "服务地址",
+      "upstreamRate": "上游倍率",
       "prefix": "前缀",
       "models": "模型/请求头",
       "status": "状态",
@@ -1476,6 +1477,13 @@
       "empty": "尚未添加配置,点击右上角新建。",
       "filterPlaceholder": "搜索密钥、地址、前缀…",
       "description": "在 {{route}} 下管理资源"
+    },
+    "upstreamBilling": {
+      "settings": "倍率检测",
+      "intervalMinutes": "检测间隔（分钟）",
+      "intervalHint": "后台会按此间隔刷新 Sub2API 上游倍率；手动刷新会立即检测。",
+      "saved": "倍率检测设置已保存",
+      "invalidInterval": "检测间隔必须大于 0"
     },
     "sponsor": {
       "protocolSummary": "Anthropic / OpenAI / Gemini / Codex API (Responses)",

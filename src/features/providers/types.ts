@@ -5,6 +5,16 @@
 import type { GeminiKeyConfig, OpenAIProviderConfig, ProviderKeyConfig } from '@/types';
 import type { ThinkingLevel } from './thinkingLevels';
 
+export interface ProviderUpstreamBillingSummary {
+  status: string;
+  label: string;
+  'effective-rate-multiplier'?: number;
+  'group-rate-multiplier'?: number;
+  'resolved-rate-multiplier'?: number;
+  error?: string;
+  'observed-at'?: string;
+}
+
 export type ProviderBrand =
   | 'gemini'
   | 'interactions'
@@ -113,6 +123,7 @@ export interface ProviderResource {
   priority: number;
   headerCount: number;
   excludedModelCount: number;
+  upstreamBilling?: ProviderUpstreamBillingSummary;
   /** 仅 OpenAI 有意义,其它 brand 该字段不展示但保留 */
   apiKeyEntryCount: number;
   /** 是否被禁用(各 brand 判定规则不同) */

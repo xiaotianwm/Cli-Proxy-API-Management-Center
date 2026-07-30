@@ -77,6 +77,9 @@ export interface UseProviderWorkbenchResult {
   errorMessage: string | null;
   snapshot: ProviderSnapshot | null;
   refetch: () => Promise<void>;
+  upstreamBillingProbeIntervalMinutes: number;
+  updateUpstreamBillingProbeInterval: (intervalMinutes: number) => Promise<void>;
+  refreshUpstreamBillingProbe: () => Promise<void>;
 
   createProvider: (brand: ProviderBrand, input: ProviderEntryFormInput) => Promise<void>;
   updateProvider: (resource: ProviderResource, input: ProviderEntryFormInput) => Promise<void>;
@@ -392,6 +395,8 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [mutating, setMutating] = useState<boolean>(false);
   const [fetchedAt, setFetchedAt] = useState<string>(() => new Date().toISOString());
+  const [upstreamBillingProbeIntervalMinutes, setUpstreamBillingProbeIntervalMinutes] =
+    useState(30);
 
   const hasFetchedRef = useRef(false);
 
@@ -401,10 +406,11 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
     setIsFetching(true);
     setErrorMessage(null);
     try {
-      const [configResult, vertexResult, openaiResult] = await Promise.allSettled([
+      const [configResult, vertexResult, openaiResult, billingResult] = await Promise.allSettled([
         fetchConfig(true),
         providersApi.getVertexConfigs(),
         providersApi.getOpenAIProviders(),
+        providersApi.getUpstreamBillingProbe(),
       ]);
       if (configResult.status !== 'fulfilled') {
         throw configResult.reason;
@@ -415,6 +421,11 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
       if (openaiResult.status === 'fulfilled') {
         updateConfigValue('openai-compatibility', openaiResult.value || []);
       }
+      if (billingResult.status === 'fulfilled') {
+        setUpstreamBillingProbeIntervalMinutes(
+          billingResult.value?.settings?.['interval-minutes'] ?? 30
+        );
+      }
       setFetchedAt(new Date().toISOString());
     } catch (err) {
       setErrorMessage(getErrorMessage(err) || 'Failed to load providers');
@@ -423,6 +434,20 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
       setIsFetching(false);
     }
   }, [fetchConfig, updateConfigValue]);
+
+  const updateUpstreamBillingProbeInterval = useCallback(
+    async (intervalMinutes: number) => {
+      await providersApi.updateUpstreamBillingProbeSettings(intervalMinutes);
+      setUpstreamBillingProbeIntervalMinutes(intervalMinutes);
+      await refetch();
+    },
+    [refetch]
+  );
+
+  const refreshUpstreamBillingProbe = useCallback(async () => {
+    await providersApi.refreshUpstreamBillingProbe();
+    await refetch();
+  }, [refetch]);
 
   const refreshSnapshot = useCallback(() => {
     setFetchedAt(new Date().toISOString());
@@ -962,6 +987,9 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
     errorMessage,
     snapshot,
     refetch,
+    upstreamBillingProbeIntervalMinutes,
+    updateUpstreamBillingProbeInterval,
+    refreshUpstreamBillingProbe,
     createProvider,
     updateProvider,
     deleteProvider,

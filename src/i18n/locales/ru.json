@@ -1440,6 +1440,7 @@
     "table": {
       "key": "Ключ",
       "baseUrl": "Base URL",
+      "upstreamRate": "Upstream rate",
       "prefix": "Префикс",
       "models": "Модели/Заголовки",
       "status": "Статус",
@@ -1454,6 +1455,13 @@
       "empty": "Нет ресурсов, нажмите \"Создать\".",
       "filterPlaceholder": "Поиск по ключам, URL, префиксам…",
       "description": "Управление ресурсами {{route}}"
+    },
+    "upstreamBilling": {
+      "settings": "Проверка мультипликатора",
+      "intervalMinutes": "Интервал проверки (минуты)",
+      "intervalHint": "Бэкенд обновляет upstream rate Sub2API по этому интервалу; ручное обновление проверяет сразу.",
+      "saved": "Настройки проверки сохранены",
+      "invalidInterval": "Интервал должен быть больше 0"
     },
     "sponsor": {
       "protocolSummary": "Anthropic / OpenAI / Gemini / Codex API (Responses)",

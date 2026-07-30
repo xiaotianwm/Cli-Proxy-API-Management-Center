@@ -3,6 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { usePageTransitionLayer } from '@/components/common/PageTransitionLayer';
 import { useHeaderRefresh } from '@/hooks/useHeaderRefresh';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { Modal } from '@/components/ui/Modal';
+import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui/Button';
 import { useAuthStore, useNotificationStore } from '@/stores';
 import { useProviderRecentRequests } from '@/components/providers/hooks/useProviderRecentRequests';
 import {
@@ -114,6 +117,8 @@ export function ProvidersWorkbenchPage({ fixedBrand }: ProvidersWorkbenchPagePro
     resource: null,
   });
   const sheetRef = useRef<ProviderSheetHandle>(null);
+  const [billingSettingsOpen, setBillingSettingsOpen] = useState(false);
+  const [billingIntervalInput, setBillingIntervalInput] = useState('30');
 
   const connected = connectionStatus === 'connected';
   const { usageByProvider, refreshRecentRequests } = useProviderRecentRequests({
@@ -121,7 +126,10 @@ export function ProvidersWorkbenchPage({ fixedBrand }: ProvidersWorkbenchPagePro
   });
 
   const handleRefresh = useCallback(async () => {
-    await Promise.allSettled([workbench.refetch(), refreshRecentRequests().catch(() => undefined)]);
+    await Promise.allSettled([
+      workbench.refreshUpstreamBillingProbe(),
+      refreshRecentRequests().catch(() => undefined),
+    ]);
   }, [refreshRecentRequests, workbench]);
 
   useHeaderRefresh(handleRefresh, isCurrentLayer);
@@ -316,6 +324,27 @@ export function ProvidersWorkbenchPage({ fixedBrand }: ProvidersWorkbenchPagePro
     setSheetState((s) => ({ ...s, open: false }));
   }, []);
 
+  const openBillingSettings = useCallback(() => {
+    setBillingIntervalInput(String(workbench.upstreamBillingProbeIntervalMinutes || 30));
+    setBillingSettingsOpen(true);
+  }, [workbench.upstreamBillingProbeIntervalMinutes]);
+
+  const saveBillingSettings = useCallback(async () => {
+    const interval = Number(billingIntervalInput);
+    if (!Number.isFinite(interval) || interval <= 0) {
+      showNotification(t('providersPage.upstreamBilling.invalidInterval'), 'error');
+      return;
+    }
+    try {
+      await workbench.updateUpstreamBillingProbeInterval(Math.floor(interval));
+      showNotification(t('providersPage.upstreamBilling.saved'), 'success');
+      setBillingSettingsOpen(false);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      showNotification(`${t('notification.update_failed')}: ${msg}`, 'error');
+    }
+  }, [billingIntervalInput, showNotification, t, workbench]);
+
   const handleDelete = useCallback(
     (resource: ProviderResource) => {
       const name = resource.name ?? resource.apiKeyPreview ?? resource.identifier ?? '';
@@ -400,6 +429,8 @@ export function ProvidersWorkbenchPage({ fixedBrand }: ProvidersWorkbenchPagePro
           isNewDisabled
           showNewAction={!fixedBrand}
           showSummary={fixedBrand !== 'apikeyFun'}
+          onSettings={openBillingSettings}
+          settingsDisabled={disableMutations}
         />
         {errorBanner}
       </div>
@@ -422,6 +453,8 @@ export function ProvidersWorkbenchPage({ fixedBrand }: ProvidersWorkbenchPagePro
         variant={fixedBrand === 'apikeyFun' ? 'quickStart' : undefined}
         onRefresh={() => void handleRefresh()}
         onNew={openCreate}
+        onSettings={openBillingSettings}
+        settingsDisabled={disableMutations}
       />
 
       {errorBanner}
@@ -487,6 +520,32 @@ export function ProvidersWorkbenchPage({ fixedBrand }: ProvidersWorkbenchPagePro
           usageByProvider={usageByProvider}
         />
       ) : null}
+
+      <Modal
+        open={billingSettingsOpen}
+        title={t('providersPage.upstreamBilling.settings')}
+        onClose={() => setBillingSettingsOpen(false)}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setBillingSettingsOpen(false)}>
+              {t('providersPage.actions.cancel')}
+            </Button>
+            <Button onClick={() => void saveBillingSettings()}>
+              {t('providersPage.actions.save')}
+            </Button>
+          </>
+        }
+      >
+        <Input
+          type="number"
+          min={1}
+          step={1}
+          value={billingIntervalInput}
+          onChange={(event) => setBillingIntervalInput(event.target.value)}
+          label={t('providersPage.upstreamBilling.intervalMinutes')}
+          hint={t('providersPage.upstreamBilling.intervalHint')}
+        />
+      </Modal>
     </div>
   );
 }

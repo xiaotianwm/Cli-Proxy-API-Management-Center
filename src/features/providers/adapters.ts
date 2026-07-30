@@ -44,6 +44,7 @@ import type {
   ProviderResourceSelector,
   SponsorProviderBrand,
   SponsorProviderRaw,
+  ProviderUpstreamBillingSummary,
 } from './types';
 
 const countHeaders = (headers?: Record<string, string>): number =>
@@ -69,6 +70,45 @@ const truncateForId = (value: string | undefined | null): string => {
   if (!trimmed) return '';
   if (trimmed.length <= 12) return trimmed;
   return trimmed.slice(0, 8);
+};
+
+const formatRate = (value: unknown): number | undefined => {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+const buildUpstreamBillingSummary = (
+  entries: Array<{ upstreamBilling?: unknown }> | undefined,
+  authIndex?: string | null
+): ProviderUpstreamBillingSummary | undefined => {
+  if (!entries || entries.length === 0) return undefined;
+  const matches = entries
+    .map((entry) => (entry?.upstreamBilling && typeof entry.upstreamBilling === 'object' ? entry.upstreamBilling : undefined))
+    .filter(Boolean) as Array<Record<string, unknown>>;
+  if (matches.length === 0) return undefined;
+  const selected = authIndex
+    ? matches.find((entry) => String(entry['auth-index'] ?? '').trim() === authIndex)
+    : undefined;
+  const picked = selected ?? matches[0];
+  const effective = formatRate(picked['effective-rate-multiplier']);
+  const groupRate = formatRate(picked['group-rate-multiplier']);
+  const resolved = formatRate(picked['resolved-rate-multiplier']);
+  const status = String(picked.status ?? '').trim() || 'unknown';
+  const label =
+    effective !== undefined
+      ? `x${effective}`
+      : status === 'ok'
+        ? 'ok'
+        : status;
+  return {
+    status,
+    label,
+    'effective-rate-multiplier': effective,
+    'group-rate-multiplier': groupRate,
+    'resolved-rate-multiplier': resolved,
+    error: String(picked.error ?? '').trim() || undefined,
+    'observed-at': String(picked['observed-at'] ?? '').trim() || undefined,
+  };
 };
 
 function providerKeyToResource(
@@ -174,6 +214,7 @@ export function openaiToResource(config: OpenAIProviderConfig, index: number): P
     headerCount: countHeaders(config.headers),
     excludedModelCount: 0,
     apiKeyEntryCount: config.apiKeyEntries?.length ?? 0,
+    upstreamBilling: buildUpstreamBillingSummary(config.apiKeyEntries, config.authIndex ?? null),
     disabled: config.disabled === true,
     flags: {},
     selector: { brand: 'openaiCompatibility', name, index: sourceIndex },

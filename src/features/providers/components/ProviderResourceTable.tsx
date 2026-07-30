@@ -43,7 +43,7 @@ interface ProviderResourceTableProps {
   onToggleDisabled?: (resource: ProviderResource, disabled: boolean) => void;
 }
 
-const columnWidths = ['180px', '220px', '72px', '138px', '174px', '176px'];
+const columnWidths = ['180px', '220px', '96px', '72px', '138px', '174px', '176px'];
 
 const isSponsorResource = (resource: ProviderResource): boolean =>
   isMultiProtocolSponsorBrand(resource.brand);
@@ -196,6 +196,26 @@ export function ProviderResourceTable({
     return <span className={styles.baseUrl}>{r.baseUrl ?? t('providersPage.status.notSet')}</span>;
   };
 
+  const renderUpstreamRate = (r: ProviderResource) => {
+    if (r.brand !== 'openaiCompatibility') {
+      return <span className={styles.baseUrl}>—</span>;
+    }
+    if (!r.upstreamBilling) {
+      return <span className={styles.baseUrl}>—</span>;
+    }
+    const rate = r.upstreamBilling.label || '—';
+    const title = r.upstreamBilling.error || r.upstreamBilling['observed-at'] || undefined;
+    const pillClass =
+      r.upstreamBilling.status === 'ok'
+        ? `${styles.ratePill} ${styles.rateOk}`
+        : `${styles.ratePill} ${styles.rateWarn}`;
+    return (
+      <span className={pillClass} title={title}>
+        {rate}
+      </span>
+    );
+  };
+
   return (
     <Table
       className={styles.providerTable}
@@ -207,6 +227,7 @@ export function ProviderResourceTable({
         <TableRow>
           <TableHead>{t('providersPage.table.key')}</TableHead>
           <TableHead>{t('providersPage.table.baseUrl')}</TableHead>
+          <TableHead>{t('providersPage.table.upstreamRate')}</TableHead>
           <TableHead>{t('providersPage.table.prefix')}</TableHead>
           <TableHead>{t('providersPage.table.models')}</TableHead>
           <TableHead>{t('providersPage.table.status')}</TableHead>
@@ -221,6 +242,7 @@ export function ProviderResourceTable({
             <TableRow key={resource.id} selected={resource.id === selectedId}>
               <TableCell>{renderPrimary(resource)}</TableCell>
               <TableCell>{renderBaseUrl(resource)}</TableCell>
+              <TableCell>{renderUpstreamRate(resource)}</TableCell>
               <TableCell>
                 {resource.prefix ? (
                   <span className={styles.chip}>{resource.prefix}</span>
