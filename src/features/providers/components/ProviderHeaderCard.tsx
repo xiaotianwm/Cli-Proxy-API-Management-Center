@@ -65,7 +65,6 @@ export function ProviderHeaderCard({
             type="button"
             className={`${styles.btn} ${styles.btnOutline}`}
             onClick={onRefresh}
-            disabled={isFetching}
             aria-label={
               isFetching ? t('providersPage.actions.syncing') : t('providersPage.actions.refresh')
             }

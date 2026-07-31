@@ -6,6 +6,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 import { useAuthStore, useNotificationStore } from '@/stores';
 import { useProviderRecentRequests } from '@/components/providers/hooks/useProviderRecentRequests';
 import {
@@ -119,18 +120,30 @@ export function ProvidersWorkbenchPage({ fixedBrand }: ProvidersWorkbenchPagePro
   const sheetRef = useRef<ProviderSheetHandle>(null);
   const [billingSettingsOpen, setBillingSettingsOpen] = useState(false);
   const [billingIntervalInput, setBillingIntervalInput] = useState('30');
+  const [healthEnabledInput, setHealthEnabledInput] = useState(false);
+  const [healthModelInput, setHealthModelInput] = useState('gpt-5.5');
+  const [autoPriorityEnabledInput, setAutoPriorityEnabledInput] = useState(false);
+  const [refreshRequestCount, setRefreshRequestCount] = useState(0);
 
   const connected = connectionStatus === 'connected';
-  const { usageByProvider, refreshRecentRequests } = useProviderRecentRequests({
+  const { usageByProvider } = useProviderRecentRequests({
     enabled: connected,
   });
 
   const handleRefresh = useCallback(async () => {
-    await Promise.allSettled([
-      workbench.refreshUpstreamBillingProbe(),
-      refreshRecentRequests().catch(() => undefined),
-    ]);
-  }, [refreshRecentRequests, workbench]);
+    setRefreshRequestCount((count) => count + 1);
+    try {
+      await workbench.refreshUpstreamBillingProbe();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      showNotification(
+        `${t('notification.refresh_failed')}${message ? `: ${message}` : ''}`,
+        'error'
+      );
+    } finally {
+      setRefreshRequestCount((count) => Math.max(0, count - 1));
+    }
+  }, [showNotification, t, workbench]);
 
   useHeaderRefresh(handleRefresh, isCurrentLayer);
 
@@ -139,6 +152,8 @@ export function ProvidersWorkbenchPage({ fixedBrand }: ProvidersWorkbenchPagePro
     workbench.mutating ||
     workbench.isFetching ||
     workbench.isError;
+
+  const isHeaderRefreshing = refreshRequestCount > 0;
 
   const persistUiState = useCallback(
     (updater: (prev: ProvidersWorkbenchUiState) => ProvidersWorkbenchUiState) => {
@@ -279,8 +294,7 @@ export function ProvidersWorkbenchPage({ fixedBrand }: ProvidersWorkbenchPagePro
     [groups]
   );
   const quickStartResource = useMemo(
-    () =>
-      fixedBrand === 'apikeyFun' && activeGroup ? (activeGroup.resources[0] ?? null) : null,
+    () => (fixedBrand === 'apikeyFun' && activeGroup ? (activeGroup.resources[0] ?? null) : null),
     [activeGroup, fixedBrand]
   );
 
@@ -326,8 +340,16 @@ export function ProvidersWorkbenchPage({ fixedBrand }: ProvidersWorkbenchPagePro
 
   const openBillingSettings = useCallback(() => {
     setBillingIntervalInput(String(workbench.upstreamBillingProbeIntervalMinutes || 30));
+    setHealthEnabledInput(workbench.upstreamHealthProbeEnabled);
+    setHealthModelInput(workbench.upstreamHealthProbeModel || 'gpt-5.5');
+    setAutoPriorityEnabledInput(workbench.upstreamAutoPriorityEnabled);
     setBillingSettingsOpen(true);
-  }, [workbench.upstreamBillingProbeIntervalMinutes]);
+  }, [
+    workbench.upstreamBillingProbeIntervalMinutes,
+    workbench.upstreamAutoPriorityEnabled,
+    workbench.upstreamHealthProbeEnabled,
+    workbench.upstreamHealthProbeModel,
+  ]);
 
   const saveBillingSettings = useCallback(async () => {
     const interval = Number(billingIntervalInput);
@@ -336,14 +358,27 @@ export function ProvidersWorkbenchPage({ fixedBrand }: ProvidersWorkbenchPagePro
       return;
     }
     try {
-      await workbench.updateUpstreamBillingProbeInterval(Math.floor(interval));
+      await workbench.updateUpstreamBillingProbeSettings(
+        Math.floor(interval),
+        healthEnabledInput,
+        healthModelInput.trim() || 'gpt-5.5',
+        autoPriorityEnabledInput
+      );
       showNotification(t('providersPage.upstreamBilling.saved'), 'success');
       setBillingSettingsOpen(false);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       showNotification(`${t('notification.update_failed')}: ${msg}`, 'error');
     }
-  }, [billingIntervalInput, showNotification, t, workbench]);
+  }, [
+    autoPriorityEnabledInput,
+    billingIntervalInput,
+    healthEnabledInput,
+    healthModelInput,
+    showNotification,
+    t,
+    workbench,
+  ]);
 
   const handleDelete = useCallback(
     (resource: ProviderResource) => {
@@ -423,7 +458,7 @@ export function ProvidersWorkbenchPage({ fixedBrand }: ProvidersWorkbenchPagePro
           totalResources={0}
           providerFamilies={0}
           updatedAtLabel={updatedAtLabel}
-          isFetching={workbench.isFetching}
+          isFetching={isHeaderRefreshing}
           onRefresh={() => void handleRefresh()}
           onNew={() => {}}
           isNewDisabled
@@ -445,7 +480,7 @@ export function ProvidersWorkbenchPage({ fixedBrand }: ProvidersWorkbenchPagePro
         totalResources={totalResources}
         providerFamilies={providerFamilies}
         updatedAtLabel={updatedAtLabel}
-        isFetching={workbench.isFetching}
+        isFetching={isHeaderRefreshing}
         isNewDisabled={disableMutations}
         showNewAction={!fixedBrand}
         showSummary={fixedBrand !== 'apikeyFun'}
@@ -545,6 +580,44 @@ export function ProvidersWorkbenchPage({ fixedBrand }: ProvidersWorkbenchPagePro
           label={t('providersPage.upstreamBilling.intervalMinutes')}
           hint={t('providersPage.upstreamBilling.intervalHint')}
         />
+        <div className={styles.settingsToggleRow}>
+          <div>
+            <div className={styles.settingsToggleLabel}>
+              {t('providersPage.upstreamBilling.healthEnabled')}
+            </div>
+            <div className={styles.settingsToggleHint}>
+              {t('providersPage.upstreamBilling.healthEnabledHint')}
+            </div>
+          </div>
+          <ToggleSwitch
+            checked={healthEnabledInput}
+            onChange={setHealthEnabledInput}
+            ariaLabel={t('providersPage.upstreamBilling.healthEnabled')}
+          />
+        </div>
+        <Input
+          value={healthModelInput}
+          onChange={(event) => setHealthModelInput(event.target.value)}
+          label={t('providersPage.upstreamBilling.healthModel')}
+          hint={t('providersPage.upstreamBilling.healthModelHint')}
+          disabled={!healthEnabledInput}
+        />
+        <div className={styles.settingsToggleRow}>
+          <div>
+            <div className={styles.settingsToggleLabel}>
+              {t('providersPage.upstreamBilling.autoPriorityEnabled')}
+            </div>
+            <div className={styles.settingsToggleHint}>
+              {t('providersPage.upstreamBilling.autoPriorityEnabledHint')}
+            </div>
+          </div>
+          <ToggleSwitch
+            checked={autoPriorityEnabledInput}
+            onChange={setAutoPriorityEnabledInput}
+            ariaLabel={t('providersPage.upstreamBilling.autoPriorityEnabled')}
+            disabled={!healthEnabledInput}
+          />
+        </div>
       </Modal>
     </div>
   );

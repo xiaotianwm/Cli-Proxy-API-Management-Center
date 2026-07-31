@@ -2,7 +2,12 @@
  * AI 提供商 Workbench 视图模型(归一化各 brand 的异构 config)
  */
 
-import type { GeminiKeyConfig, OpenAIProviderConfig, ProviderKeyConfig } from '@/types';
+import type {
+  GeminiKeyConfig,
+  OpenAIProviderConfig,
+  ProviderKeyConfig,
+  UpstreamHealthProbeSample,
+} from '@/types';
 import type { ThinkingLevel } from './thinkingLevels';
 
 export interface ProviderUpstreamBillingSummary {
@@ -13,6 +18,10 @@ export interface ProviderUpstreamBillingSummary {
   'resolved-rate-multiplier'?: number;
   error?: string;
   'observed-at'?: string;
+}
+
+export interface ProviderUpstreamHealthSummary {
+  history: UpstreamHealthProbeSample[];
 }
 
 export type ProviderBrand =
@@ -124,6 +133,7 @@ export interface ProviderResource {
   headerCount: number;
   excludedModelCount: number;
   upstreamBilling?: ProviderUpstreamBillingSummary;
+  upstreamHealth?: ProviderUpstreamHealthSummary;
   /** 仅 OpenAI 有意义,其它 brand 该字段不展示但保留 */
   apiKeyEntryCount: number;
   /** 是否被禁用(各 brand 判定规则不同) */

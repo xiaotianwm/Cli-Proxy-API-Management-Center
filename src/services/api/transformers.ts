@@ -5,6 +5,7 @@ import type {
   ModelAlias,
   OpenAIProviderConfig,
   ProviderKeyConfig,
+  UpstreamHealthProbeSample,
   UpstreamBillingProbeEntry,
 } from '@/types';
 import type { Config } from '@/types/config';
@@ -149,6 +150,29 @@ const normalizeUpstreamBillingEntry = (entry: unknown): UpstreamBillingProbeEntr
   if (peakEnd) result['peak-end'] = peakEnd;
   const timezone = normalizePrefix(entry.timezone);
   if (timezone) result.timezone = timezone;
+  const healthHistory = Array.isArray(entry['health-history'])
+    ? entry['health-history']
+        .map((item) => normalizeUpstreamHealthProbeSample(item))
+        .filter(Boolean)
+    : [];
+  if (healthHistory.length) result['health-history'] = healthHistory as UpstreamHealthProbeSample[];
+  return result;
+};
+
+const normalizeUpstreamHealthProbeSample = (sample: unknown): UpstreamHealthProbeSample | null => {
+  if (!isRecord(sample)) return null;
+  const status = String(sample.status ?? '').trim();
+  const checkedAt = normalizePrefix(sample['checked-at']);
+  if (!status || !checkedAt) return null;
+  const result: UpstreamHealthProbeSample = { status, 'checked-at': checkedAt };
+  const latency = normalizeNumber(sample['latency-ms']);
+  if (latency !== undefined) result['latency-ms'] = latency;
+  const httpStatus = normalizeNumber(sample['http-status']);
+  if (httpStatus !== undefined) result['http-status'] = httpStatus;
+  const model = normalizePrefix(sample.model);
+  if (model) result.model = model;
+  const error = normalizePrefix(sample.error);
+  if (error) result.error = error;
   return result;
 };
 
