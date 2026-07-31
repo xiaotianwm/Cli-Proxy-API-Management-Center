@@ -560,7 +560,9 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
     document.addEventListener('visibilitychange', resumeVisiblePolling);
     return () => {
       document.removeEventListener('visibilitychange', resumeVisiblePolling);
+      upstreamProbePollGenerationRef.current += 1;
       upstreamProbePollActiveRef.current = false;
+      upstreamProbeRunningRef.current = new Set();
       if (upstreamProbePollTimerRef.current !== null) {
         clearTimeout(upstreamProbePollTimerRef.current);
         upstreamProbePollTimerRef.current = null;
@@ -588,6 +590,7 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
       healthModel: string,
       autoPriorityEnabled: boolean
     ) => {
+      const generation = upstreamProbePollGenerationRef.current;
       const model = healthModel.trim() || 'gpt-5.5';
       await providersApi.updateUpstreamBillingProbeSettings(
         intervalMinutes,
@@ -599,13 +602,30 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
       setUpstreamHealthProbeEnabled(healthEnabled);
       setUpstreamHealthProbeModel(model);
       setUpstreamAutoPriorityEnabled(autoPriorityEnabled);
+      if (generation === upstreamProbePollGenerationRef.current) {
+        try {
+          const payload = await providersApi.getUpstreamBillingProbe();
+          if (generation === upstreamProbePollGenerationRef.current) {
+            upstreamProbeRunningRef.current = upstreamProbeTaskSet(payload.running);
+            applyUpstreamProbePayload(payload);
+            if (payload.running?.length) {
+              upstreamProbePollActiveRef.current = true;
+              scheduleUpstreamProbePoll(0);
+            }
+          }
+        } catch {
+          // Saving settings remains successful even if the follow-up snapshot fails.
+        }
+      }
       await refetch({ skipUpstreamBillingProbe: true });
     },
-    [refetch]
+    [applyUpstreamProbePayload, refetch, scheduleUpstreamProbePoll]
   );
 
   const refreshUpstreamBillingProbe = useCallback(async () => {
+    const generation = upstreamProbePollGenerationRef.current;
     const acknowledgement = await providersApi.refreshUpstreamBillingProbe();
+    if (generation !== upstreamProbePollGenerationRef.current) return;
     upstreamProbePollGenerationRef.current += 1;
     upstreamProbeRunningRef.current = upstreamProbeTaskSet([
       ...(acknowledgement.running ?? []),
