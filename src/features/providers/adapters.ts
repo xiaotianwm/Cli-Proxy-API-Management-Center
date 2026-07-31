@@ -1,4 +1,10 @@
-import type { GeminiKeyConfig, OpenAIProviderConfig, ProviderKeyConfig, UpstreamHealthProbeSample } from '@/types';
+import type {
+  ApiKeyEntry,
+  GeminiKeyConfig,
+  OpenAIProviderConfig,
+  ProviderKeyConfig,
+  UpstreamBillingProbeEntry,
+} from '@/types';
 import { hasDisableAllModelsRule, stripDisableAllModelsRule } from '@/components/providers/utils';
 import { maskApiKey } from '@/utils/format';
 import {
@@ -79,55 +85,45 @@ const formatRate = (value: unknown): number | undefined => {
 };
 
 const buildUpstreamBillingSummary = (
-  entries: Array<{ upstreamBilling?: unknown }> | undefined,
-  authIndex?: string | null
+  probe: UpstreamBillingProbeEntry | undefined
 ): ProviderUpstreamBillingSummary | undefined => {
-  if (!entries || entries.length === 0) return undefined;
-  const matches = entries
-    .map((entry) => (entry?.upstreamBilling && typeof entry.upstreamBilling === 'object' ? entry.upstreamBilling : undefined))
-    .filter(Boolean) as Array<Record<string, unknown>>;
-  if (matches.length === 0) return undefined;
-  const selected = authIndex
-    ? matches.find((entry) => String(entry['auth-index'] ?? '').trim() === authIndex)
-    : undefined;
-  if (authIndex && !selected) return undefined;
-  const picked = selected ?? matches[0];
-  const effective = formatRate(picked['effective-rate-multiplier']);
-  const groupRate = formatRate(picked['group-rate-multiplier']);
-  const resolved = formatRate(picked['resolved-rate-multiplier']);
-  const status = String(picked.status ?? '').trim() || 'unknown';
-  const label =
-    effective !== undefined
-      ? `x${effective}`
-      : status === 'ok'
-        ? 'ok'
-        : status;
+  if (!probe) return undefined;
+  const effective = formatRate(probe['effective-rate-multiplier']);
+  const groupRate = formatRate(probe['group-rate-multiplier']);
+  const resolved = formatRate(probe['resolved-rate-multiplier']);
+  const status = String(probe.status ?? '').trim() || 'unknown';
+  const label = effective !== undefined ? `x${effective}` : status === 'ok' ? 'ok' : status;
   return {
     status,
     label,
     'effective-rate-multiplier': effective,
     'group-rate-multiplier': groupRate,
     'resolved-rate-multiplier': resolved,
-    error: String(picked.error ?? '').trim() || undefined,
-    'observed-at': String(picked['observed-at'] ?? '').trim() || undefined,
+    error: String(probe.error ?? '').trim() || undefined,
+    'observed-at': String(probe['observed-at'] ?? '').trim() || undefined,
   };
 };
 
 const buildUpstreamHealthSummary = (
-  entries: Array<{ upstreamBilling?: { 'health-history'?: UpstreamHealthProbeSample[]; 'auth-index'?: string } }> | undefined,
-  authIndex?: string | null
+  probe: UpstreamBillingProbeEntry | undefined
 ): ProviderUpstreamHealthSummary | undefined => {
-  if (!entries || entries.length === 0) return undefined;
-  const candidates = entries
-    .map((entry) => entry.upstreamBilling)
-    .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry?.['health-history']?.length));
-  if (candidates.length === 0) return undefined;
-  const picked = authIndex
-    ? candidates.find((entry) => String(entry['auth-index'] ?? '').trim() === authIndex)
-    : undefined;
-  if (authIndex && !picked) return undefined;
-  const history = (picked ?? candidates[0])['health-history'] ?? [];
+  const history = probe?.['health-history'] ?? [];
   return history.length ? { history } : undefined;
+};
+
+const selectUpstreamProbe = (
+  entries: ApiKeyEntry[] | undefined,
+  providerAuthIndex?: string | null
+): UpstreamBillingProbeEntry | undefined => {
+  if (!entries?.length) return undefined;
+  const preferredAuthIndex =
+    String(providerAuthIndex ?? '').trim() || String(entries[0]?.authIndex ?? '').trim();
+  if (!preferredAuthIndex) return entries[0]?.upstreamBilling;
+  return entries.find((entry) => {
+    const entryAuthIndex = String(entry.authIndex ?? '').trim();
+    const probeAuthIndex = String(entry.upstreamBilling?.['auth-index'] ?? '').trim();
+    return entryAuthIndex === preferredAuthIndex || probeAuthIndex === preferredAuthIndex;
+  })?.upstreamBilling;
 };
 
 function providerKeyToResource(
@@ -214,6 +210,7 @@ export function openaiToResource(config: OpenAIProviderConfig, index: number): P
   const sourceIndex = config.sourceIndex ?? index;
   const name = (config.name ?? '').trim();
   const firstEntry = config.apiKeyEntries?.[0];
+  const upstreamProbe = selectUpstreamProbe(config.apiKeyEntries, config.authIndex ?? null);
   const previewApiKey = firstEntry?.apiKey ? maskApiKey(firstEntry.apiKey) : null;
   return {
     id: buildId('openaiCompatibility', sourceIndex, truncateForId(name) || `#${sourceIndex}`),
@@ -233,8 +230,8 @@ export function openaiToResource(config: OpenAIProviderConfig, index: number): P
     headerCount: countHeaders(config.headers),
     excludedModelCount: 0,
     apiKeyEntryCount: config.apiKeyEntries?.length ?? 0,
-    upstreamBilling: buildUpstreamBillingSummary(config.apiKeyEntries, config.authIndex ?? null),
-    upstreamHealth: buildUpstreamHealthSummary(config.apiKeyEntries, config.authIndex ?? null),
+    upstreamBilling: buildUpstreamBillingSummary(upstreamProbe),
+    upstreamHealth: buildUpstreamHealthSummary(upstreamProbe),
     disabled: config.disabled === true,
     flags: {},
     selector: { brand: 'openaiCompatibility', name, index: sourceIndex },
