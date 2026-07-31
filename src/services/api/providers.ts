@@ -20,9 +20,28 @@ const serializeHeaders = (headers?: Record<string, string>) =>
 const RESPONSE_ONLY_FIELDS = ['auth-index', 'upstream-billing'] as const;
 
 export interface UpstreamBillingProbePayload {
-  settings: { 'interval-minutes': number };
+  settings: {
+    'interval-minutes': number;
+    'health-enabled'?: boolean;
+    'health-model'?: string;
+    'auto-priority-enabled'?: boolean;
+  };
   'updated-at'?: string;
   items: UpstreamBillingProbeEntry[];
+  running: UpstreamProbeTaskRef[];
+}
+
+export type UpstreamProbeTaskKind = 'billing' | 'health';
+
+export interface UpstreamProbeTaskRef {
+  'auth-index': string;
+  kind: UpstreamProbeTaskKind;
+}
+
+export interface UpstreamProbeRefreshAck {
+  accepted: UpstreamProbeTaskRef[];
+  skipped: Array<UpstreamProbeTaskRef & { reason: string }>;
+  running: UpstreamProbeTaskRef[];
 }
 
 const PROVIDER_COMMON_KEY_FIELDS = [
@@ -599,11 +618,19 @@ export const providersApi = {
   getUpstreamBillingProbe: () =>
     apiClient.get<UpstreamBillingProbePayload>('/upstream-billing-probe'),
 
-  updateUpstreamBillingProbeSettings: (intervalMinutes: number) =>
-    apiClient.put('/upstream-billing-probe', { 'interval-minutes': intervalMinutes }),
+  updateUpstreamBillingProbeSettings: (
+    intervalMinutes: number,
+    healthEnabled: boolean,
+    healthModel?: string,
+    autoPriorityEnabled?: boolean
+  ) =>
+    apiClient.put('/upstream-billing-probe', {
+      'interval-minutes': intervalMinutes,
+      'health-enabled': healthEnabled,
+      'auto-priority-enabled': autoPriorityEnabled === true,
+      ...(healthModel ? { 'health-model': healthModel } : {}),
+    }),
 
   refreshUpstreamBillingProbe: () =>
-    apiClient.post<Pick<UpstreamBillingProbePayload, 'items' | 'updated-at'>>(
-      '/upstream-billing-probe/refresh'
-    ),
+    apiClient.post<UpstreamProbeRefreshAck>('/upstream-billing-probe/refresh'),
 };

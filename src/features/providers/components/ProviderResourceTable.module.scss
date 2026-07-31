@@ -49,31 +49,37 @@
   white-space: nowrap;
 }
 
-.ratePill {
-  display: inline-flex;
-  align-items: center;
-  padding: 3px 9px;
+.healthBars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  width: 136px;
+  height: 20px;
+  overflow: hidden;
+}
+
+.healthBar {
+  flex: 1 1 0;
+  min-width: 3px;
+  max-width: 6px;
   border-radius: 999px;
-  border: 1px solid var(--border-color);
-  background: var(--muted-bg);
-  color: var(--muted-foreground);
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.4;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
+  background: var(--muted-foreground);
 }
 
-.rateOk {
-  border-color: var(--success-badge-border);
-  background: var(--success-badge-bg);
-  color: var(--success-badge-text);
+.healthBarEmpty {
+  background: transparent;
 }
 
-.rateWarn {
-  border-color: var(--amber-30);
-  background: var(--amber-10);
-  color: var(--amber-text);
+.healthBarOk {
+  background: #10b981;
+}
+
+.healthBarSlow {
+  background: #f59e0b;
+}
+
+.healthBarFailed {
+  background: #ef4444;
 }
 
 .chip {

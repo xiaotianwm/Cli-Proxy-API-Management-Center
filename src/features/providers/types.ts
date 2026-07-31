@@ -3,6 +3,7 @@
  */
 
 import type { GeminiKeyConfig, OpenAIProviderConfig, ProviderKeyConfig } from '@/types';
+import type { UpstreamHealthProbeSample } from '@/types';
 
 export interface ProviderUpstreamBillingSummary {
   status: string;
@@ -12,6 +13,10 @@ export interface ProviderUpstreamBillingSummary {
   'resolved-rate-multiplier'?: number;
   error?: string;
   'observed-at'?: string;
+}
+
+export interface ProviderUpstreamHealthSummary {
+  history: UpstreamHealthProbeSample[];
 }
 
 export type ProviderBrand =
@@ -114,6 +119,7 @@ export interface ProviderResource {
   headerCount: number;
   excludedModelCount: number;
   upstreamBilling?: ProviderUpstreamBillingSummary;
+  upstreamHealth?: ProviderUpstreamHealthSummary;
   /** 仅 OpenAI 有意义,其它 brand 该字段不展示但保留 */
   apiKeyEntryCount: number;
   /** 是否被禁用(各 brand 判定规则不同) */

@@ -1,4 +1,4 @@
-import type { GeminiKeyConfig, OpenAIProviderConfig, ProviderKeyConfig } from '@/types';
+import type { GeminiKeyConfig, OpenAIProviderConfig, ProviderKeyConfig, UpstreamHealthProbeSample } from '@/types';
 import { hasDisableAllModelsRule, stripDisableAllModelsRule } from '@/components/providers/utils';
 import { maskApiKey } from '@/utils/format';
 import {
@@ -39,6 +39,7 @@ import type {
   SponsorProviderBrand,
   SponsorProviderRaw,
   ProviderUpstreamBillingSummary,
+  ProviderUpstreamHealthSummary,
 } from './types';
 
 const countHeaders = (headers?: Record<string, string>): number =>
@@ -83,6 +84,7 @@ const buildUpstreamBillingSummary = (
   const selected = authIndex
     ? matches.find((entry) => String(entry['auth-index'] ?? '').trim() === authIndex)
     : undefined;
+  if (authIndex && !selected) return undefined;
   const picked = selected ?? matches[0];
   const effective = formatRate(picked['effective-rate-multiplier']);
   const groupRate = formatRate(picked['group-rate-multiplier']);
@@ -103,6 +105,23 @@ const buildUpstreamBillingSummary = (
     error: String(picked.error ?? '').trim() || undefined,
     'observed-at': String(picked['observed-at'] ?? '').trim() || undefined,
   };
+};
+
+const buildUpstreamHealthSummary = (
+  entries: Array<{ upstreamBilling?: { 'health-history'?: UpstreamHealthProbeSample[]; 'auth-index'?: string } }> | undefined,
+  authIndex?: string | null
+): ProviderUpstreamHealthSummary | undefined => {
+  if (!entries || entries.length === 0) return undefined;
+  const candidates = entries
+    .map((entry) => entry.upstreamBilling)
+    .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry?.['health-history']?.length));
+  if (candidates.length === 0) return undefined;
+  const picked = authIndex
+    ? candidates.find((entry) => String(entry['auth-index'] ?? '').trim() === authIndex)
+    : undefined;
+  if (authIndex && !picked) return undefined;
+  const history = (picked ?? candidates[0])['health-history'] ?? [];
+  return history.length ? { history } : undefined;
 };
 
 function providerKeyToResource(
@@ -209,6 +228,7 @@ export function openaiToResource(config: OpenAIProviderConfig, index: number): P
     excludedModelCount: 0,
     apiKeyEntryCount: config.apiKeyEntries?.length ?? 0,
     upstreamBilling: buildUpstreamBillingSummary(config.apiKeyEntries, config.authIndex ?? null),
+    upstreamHealth: buildUpstreamHealthSummary(config.apiKeyEntries, config.authIndex ?? null),
     disabled: config.disabled === true,
     flags: {},
     selector: { brand: 'openaiCompatibility', name, index: sourceIndex },

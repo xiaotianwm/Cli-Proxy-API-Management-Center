@@ -43,7 +43,8 @@ interface ProviderResourceTableProps {
   onToggleDisabled?: (resource: ProviderResource, disabled: boolean) => void;
 }
 
-const columnWidths = ['180px', '220px', '96px', '72px', '138px', '174px', '176px'];
+const columnWidths = ['180px', '220px', '150px', '96px', '72px', '138px', '174px', '176px'];
+const HEALTH_HISTORY_SLOTS = 20;
 
 const isSponsorResource = (resource: ProviderResource): boolean =>
   isMultiProtocolSponsorBrand(resource.brand);
@@ -205,14 +206,42 @@ export function ProviderResourceTable({
     }
     const rate = r.upstreamBilling.label || '—';
     const title = r.upstreamBilling.error || r.upstreamBilling['observed-at'] || undefined;
-    const pillClass =
-      r.upstreamBilling.status === 'ok'
-        ? `${styles.ratePill} ${styles.rateOk}`
-        : `${styles.ratePill} ${styles.rateWarn}`;
+    return <span className={styles.baseUrl} title={title}>{rate}</span>;
+  };
+
+  const renderUpstreamHealth = (r: ProviderResource) => {
+    if (r.brand !== 'openaiCompatibility') {
+      return <span className={styles.baseUrl}>—</span>;
+    }
+    const history = (r.upstreamHealth?.history ?? []).slice(-HEALTH_HISTORY_SLOTS);
+    const slots: Array<(typeof history)[number] | null> = [
+      ...Array.from({ length: HEALTH_HISTORY_SLOTS - history.length }, () => null),
+      ...history,
+    ];
     return (
-      <span className={pillClass} title={title}>
-        {rate}
-      </span>
+      <div className={styles.healthBars} aria-label="upstream health history">
+        {slots.map((sample, index) => {
+          if (!sample) {
+            return <span key={`empty-${index}`} className={`${styles.healthBar} ${styles.healthBarEmpty}`} />;
+          }
+          const latency = Number(sample['latency-ms'] ?? 0);
+          const failed = sample.status !== 'ok';
+          const slow = !failed && latency > 10000;
+          const height = failed ? 7 : slow ? 12 : 18;
+          const colorClass = failed ? styles.healthBarFailed : slow ? styles.healthBarSlow : styles.healthBarOk;
+          const title = failed
+            ? `${sample.error || 'failed'} · ${sample['checked-at']}`
+            : `${latency} ms · ${sample['checked-at']}`;
+          return (
+            <span
+              key={`${sample['checked-at']}-${index}`}
+              className={`${styles.healthBar} ${colorClass}`}
+              style={{ height }}
+              title={title}
+            />
+          );
+        })}
+      </div>
     );
   };
 
@@ -227,6 +256,7 @@ export function ProviderResourceTable({
         <TableRow>
           <TableHead>{t('providersPage.table.key')}</TableHead>
           <TableHead>{t('providersPage.table.baseUrl')}</TableHead>
+          <TableHead>{t('providersPage.table.upstreamHealth')}</TableHead>
           <TableHead>{t('providersPage.table.upstreamRate')}</TableHead>
           <TableHead>{t('providersPage.table.prefix')}</TableHead>
           <TableHead>{t('providersPage.table.models')}</TableHead>
@@ -242,6 +272,7 @@ export function ProviderResourceTable({
             <TableRow key={resource.id} selected={resource.id === selectedId}>
               <TableCell>{renderPrimary(resource)}</TableCell>
               <TableCell>{renderBaseUrl(resource)}</TableCell>
+              <TableCell>{renderUpstreamHealth(resource)}</TableCell>
               <TableCell>{renderUpstreamRate(resource)}</TableCell>
               <TableCell>
                 {resource.prefix ? (

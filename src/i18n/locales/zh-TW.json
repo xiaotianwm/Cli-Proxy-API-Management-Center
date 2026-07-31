@@ -1436,6 +1436,7 @@
     "table": {
       "key": "金鑰",
       "baseUrl": "服務位址",
+      "upstreamHealth": "探活",
       "upstreamRate": "上游倍率",
       "prefix": "前綴",
       "models": "模型/請求標頭",
@@ -1455,7 +1456,13 @@
     "upstreamBilling": {
       "settings": "倍率檢測",
       "intervalMinutes": "檢測間隔（分鐘）",
-      "intervalHint": "後台會依此間隔刷新 Sub2API 上游倍率；手動刷新會立即檢測。",
+      "healthEnabled": "啟用模型探活",
+      "healthEnabledHint": "關閉時只刷新 Sub2API 倍率接口，不發送模型請求，不消耗 token。",
+      "healthModel": "探活模型",
+      "healthModelHint": "開啟模型探活後，使用此模型發送一次最小真實呼叫；預設 gpt-5.5。",
+      "autoPriorityEnabled": "依探活自動調整優先級",
+      "autoPriorityEnabledHint": "開啟後每次模型探活會寫回系統 priority：優秀 100，一般 50，失敗 1。",
+      "intervalHint": "後台會依此間隔刷新 Sub2API 上游倍率；啟用模型探活後，每次定時刷新還會對每個上游發送一次模型請求。",
       "saved": "倍率檢測設定已儲存",
       "invalidInterval": "檢測間隔必須大於 0"
     },

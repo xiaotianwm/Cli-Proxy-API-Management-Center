@@ -20,6 +20,15 @@ export interface ApiKeyEntry {
   upstreamBilling?: UpstreamBillingProbeEntry;
 }
 
+export interface UpstreamHealthProbeSample {
+  status: string;
+  'latency-ms'?: number;
+  'http-status'?: number;
+  model?: string;
+  'checked-at': string;
+  error?: string;
+}
+
 export interface UpstreamBillingProbeEntry {
   'auth-index': string;
   provider?: string;
@@ -39,6 +48,7 @@ export interface UpstreamBillingProbeEntry {
   'peak-start'?: string;
   'peak-end'?: string;
   timezone?: string;
+  'health-history'?: UpstreamHealthProbeSample[];
 }
 
 export interface CloakConfig {

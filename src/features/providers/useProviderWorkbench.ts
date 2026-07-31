@@ -7,8 +7,15 @@ import {
   withDisableAllModelsRule,
   withoutDisableAllModelsRule,
 } from '@/components/providers/utils';
-import type { GeminiKeyConfig, ModelAlias, OpenAIProviderConfig, ProviderKeyConfig } from '@/types';
+import type {
+  GeminiKeyConfig,
+  ModelAlias,
+  OpenAIProviderConfig,
+  ProviderKeyConfig,
+  UpstreamBillingProbeEntry,
+} from '@/types';
 import type { UpstreamBillingProbePayload } from '@/services/api/providers';
+import { hasCompletedHealthProbe, upstreamProbeTaskSet } from './upstreamProbePolling';
 import {
   apiKeyFunToResource,
   claudeApiToResource,
@@ -70,7 +77,15 @@ export interface UseProviderWorkbenchResult {
   snapshot: ProviderSnapshot | null;
   refetch: () => Promise<void>;
   upstreamBillingProbeIntervalMinutes: number;
-  updateUpstreamBillingProbeInterval: (intervalMinutes: number) => Promise<void>;
+  upstreamHealthProbeEnabled: boolean;
+  upstreamHealthProbeModel: string;
+  upstreamAutoPriorityEnabled: boolean;
+  updateUpstreamBillingProbeSettings: (
+    intervalMinutes: number,
+    healthEnabled: boolean,
+    healthModel: string,
+    autoPriorityEnabled: boolean
+  ) => Promise<void>;
   refreshUpstreamBillingProbe: () => Promise<void>;
 
   createProvider: (brand: ProviderBrand, input: ProviderEntryFormInput) => Promise<void>;
@@ -373,6 +388,8 @@ const toggleSponsorConfig = async (raw: SponsorProviderRaw, disabled: boolean) =
 
 export function useProviderWorkbench(): UseProviderWorkbenchResult {
   const connectionStatus = useAuthStore((s) => s.connectionStatus);
+  const apiBase = useAuthStore((s) => s.apiBase);
+  const managementKey = useAuthStore((s) => s.managementKey);
   const config = useConfigStore((s) => s.config);
   const fetchConfig = useConfigStore((s) => s.fetchConfig);
   const updateConfigValue = useConfigStore((s) => s.updateConfigValue);
@@ -385,65 +402,218 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
   const [fetchedAt, setFetchedAt] = useState<string>(() => new Date().toISOString());
   const [upstreamBillingProbeIntervalMinutes, setUpstreamBillingProbeIntervalMinutes] =
     useState(30);
+  const [upstreamHealthProbeEnabled, setUpstreamHealthProbeEnabled] = useState(false);
+  const [upstreamHealthProbeModel, setUpstreamHealthProbeModel] = useState('gpt-5.5');
+  const [upstreamAutoPriorityEnabled, setUpstreamAutoPriorityEnabled] = useState(false);
+  const [upstreamProbeItems, setUpstreamProbeItems] = useState<UpstreamBillingProbeEntry[]>([]);
+  const [upstreamProbeRunningCount, setUpstreamProbeRunningCount] = useState(0);
 
   const hasFetchedRef = useRef(false);
+  const upstreamProbePollActiveRef = useRef(false);
+  const upstreamProbePollInFlightRef = useRef(false);
+  const upstreamProbePollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const upstreamProbePollRef = useRef<() => void>(() => {});
+  const upstreamProbePollGenerationRef = useRef(0);
+  const upstreamProbeRunningRef = useRef<Set<string>>(new Set());
 
   const connected = connectionStatus === 'connected';
 
-  const refetch = useCallback(async (options: RefetchOptions = {}) => {
-    setIsFetching(true);
-    setErrorMessage(null);
-    try {
-      const configPromise = fetchConfig(true);
-      const vertexPromise = providersApi.getVertexConfigs();
-      const openaiPromise = providersApi.getOpenAIProviders();
-      const billingPromise: Promise<UpstreamBillingProbePayload | undefined> =
-        options.skipUpstreamBillingProbe
-          ? Promise.resolve(undefined)
-          : providersApi.getUpstreamBillingProbe();
+  const applyUpstreamProbePayload = useCallback((payload: UpstreamBillingProbePayload) => {
+    setUpstreamBillingProbeIntervalMinutes(payload.settings?.['interval-minutes'] ?? 30);
+    setUpstreamHealthProbeEnabled(payload.settings?.['health-enabled'] === true);
+    setUpstreamHealthProbeModel(payload.settings?.['health-model'] || 'gpt-5.5');
+    setUpstreamAutoPriorityEnabled(payload.settings?.['auto-priority-enabled'] === true);
+    setUpstreamProbeItems(Array.isArray(payload.items) ? payload.items : []);
+    setUpstreamProbeRunningCount(Array.isArray(payload.running) ? payload.running.length : 0);
+    setFetchedAt(new Date().toISOString());
+  }, []);
 
-      const [configResult, vertexResult, openaiResult, billingResult] = await Promise.allSettled([
-        configPromise,
-        vertexPromise,
-        openaiPromise,
-        billingPromise,
-      ] as const);
-      if (configResult.status !== 'fulfilled') {
-        throw configResult.reason;
+  const refetch = useCallback(
+    async (options: RefetchOptions = {}) => {
+      setIsFetching(true);
+      setErrorMessage(null);
+      const probeGeneration = upstreamProbePollGenerationRef.current;
+      try {
+        const configPromise = fetchConfig(true);
+        const vertexPromise = providersApi.getVertexConfigs();
+        const openaiPromise = providersApi.getOpenAIProviders();
+        const billingPromise: Promise<UpstreamBillingProbePayload | undefined> =
+          options.skipUpstreamBillingProbe
+            ? Promise.resolve(undefined)
+            : providersApi.getUpstreamBillingProbe();
+
+        const [configResult, vertexResult, openaiResult, billingResult] = await Promise.allSettled([
+          configPromise,
+          vertexPromise,
+          openaiPromise,
+          billingPromise,
+        ] as const);
+        if (configResult.status !== 'fulfilled') {
+          throw configResult.reason;
+        }
+        if (vertexResult.status === 'fulfilled') {
+          updateConfigValue('vertex-api-key', vertexResult.value || []);
+        }
+        if (openaiResult.status === 'fulfilled') {
+          updateConfigValue('openai-compatibility', openaiResult.value || []);
+        }
+        if (
+          billingResult?.status === 'fulfilled' &&
+          billingResult.value &&
+          probeGeneration === upstreamProbePollGenerationRef.current
+        ) {
+          upstreamProbeRunningRef.current = upstreamProbeTaskSet(billingResult.value.running);
+          applyUpstreamProbePayload(billingResult.value);
+        }
+        setFetchedAt(new Date().toISOString());
+      } catch (err) {
+        setErrorMessage(getErrorMessage(err) || 'Failed to load providers');
+      } finally {
+        setIsPending(false);
+        setIsFetching(false);
       }
-      if (vertexResult.status === 'fulfilled') {
-        updateConfigValue('vertex-api-key', vertexResult.value || []);
-      }
-      if (openaiResult.status === 'fulfilled') {
-        updateConfigValue('openai-compatibility', openaiResult.value || []);
-      }
-      if (billingResult?.status === 'fulfilled' && billingResult.value) {
-        setUpstreamBillingProbeIntervalMinutes(
-          billingResult.value?.settings?.['interval-minutes'] ?? 30
-        );
-      }
-      setFetchedAt(new Date().toISOString());
-    } catch (err) {
-      setErrorMessage(getErrorMessage(err) || 'Failed to load providers');
-    } finally {
-      setIsPending(false);
-      setIsFetching(false);
+    },
+    [applyUpstreamProbePayload, fetchConfig, updateConfigValue]
+  );
+
+  const scheduleUpstreamProbePoll = useCallback((delayMs: number) => {
+    if (upstreamProbePollTimerRef.current !== null) {
+      clearTimeout(upstreamProbePollTimerRef.current);
     }
-  }, [fetchConfig, updateConfigValue]);
+    upstreamProbePollTimerRef.current = setTimeout(() => {
+      upstreamProbePollTimerRef.current = null;
+      upstreamProbePollRef.current();
+    }, delayMs);
+  }, []);
 
-  const updateUpstreamBillingProbeInterval = useCallback(
-    async (intervalMinutes: number) => {
-      await providersApi.updateUpstreamBillingProbeSettings(intervalMinutes);
+  const pollUpstreamProbeSnapshot = useCallback(async () => {
+    if (!connected || !upstreamProbePollActiveRef.current || upstreamProbePollInFlightRef.current) {
+      return;
+    }
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      scheduleUpstreamProbePoll(2000);
+      return;
+    }
+    upstreamProbePollInFlightRef.current = true;
+    const generation = upstreamProbePollGenerationRef.current;
+    try {
+      const payload = await providersApi.getUpstreamBillingProbe();
+      if (generation !== upstreamProbePollGenerationRef.current) {
+        scheduleUpstreamProbePoll(0);
+        return;
+      }
+      const nextRunning = upstreamProbeTaskSet(payload.running);
+      const healthCompleted = hasCompletedHealthProbe(upstreamProbeRunningRef.current, nextRunning);
+      upstreamProbeRunningRef.current = nextRunning;
+      applyUpstreamProbePayload(payload);
+      if (healthCompleted && payload.settings?.['auto-priority-enabled'] === true) {
+        try {
+          const openaiProviders = await providersApi.getOpenAIProviders();
+          if (generation === upstreamProbePollGenerationRef.current) {
+            updateConfigValue('openai-compatibility', openaiProviders || []);
+          }
+        } catch {
+          // Probe results remain usable even when the priority snapshot refresh fails.
+        }
+      }
+      if (payload.running?.length) {
+        scheduleUpstreamProbePoll(1500);
+      } else {
+        upstreamProbePollActiveRef.current = false;
+      }
+    } catch {
+      if (upstreamProbePollActiveRef.current) {
+        scheduleUpstreamProbePoll(3000);
+      }
+    } finally {
+      upstreamProbePollInFlightRef.current = false;
+    }
+  }, [applyUpstreamProbePayload, connected, scheduleUpstreamProbePoll, updateConfigValue]);
+
+  useEffect(() => {
+    upstreamProbePollRef.current = () => {
+      void pollUpstreamProbeSnapshot();
+    };
+  }, [pollUpstreamProbeSnapshot]);
+
+  useEffect(() => {
+    if (!connected) {
+      upstreamProbePollActiveRef.current = false;
+      if (upstreamProbePollTimerRef.current !== null) {
+        clearTimeout(upstreamProbePollTimerRef.current);
+        upstreamProbePollTimerRef.current = null;
+      }
+      return;
+    }
+    if (upstreamProbeRunningCount > 0) {
+      upstreamProbePollActiveRef.current = true;
+      scheduleUpstreamProbePoll(0);
+    }
+  }, [connected, scheduleUpstreamProbePoll, upstreamProbeRunningCount]);
+
+  useEffect(() => {
+    const resumeVisiblePolling = () => {
+      if (document.visibilityState === 'visible' && upstreamProbePollActiveRef.current) {
+        scheduleUpstreamProbePoll(0);
+      }
+    };
+    document.addEventListener('visibilitychange', resumeVisiblePolling);
+    return () => {
+      document.removeEventListener('visibilitychange', resumeVisiblePolling);
+      upstreamProbePollActiveRef.current = false;
+      if (upstreamProbePollTimerRef.current !== null) {
+        clearTimeout(upstreamProbePollTimerRef.current);
+        upstreamProbePollTimerRef.current = null;
+      }
+    };
+  }, [scheduleUpstreamProbePoll]);
+
+  useEffect(() => {
+    upstreamProbePollGenerationRef.current += 1;
+    upstreamProbePollActiveRef.current = false;
+    upstreamProbeRunningRef.current = new Set();
+    hasFetchedRef.current = false;
+    setUpstreamProbeItems([]);
+    setUpstreamProbeRunningCount(0);
+    if (upstreamProbePollTimerRef.current !== null) {
+      clearTimeout(upstreamProbePollTimerRef.current);
+      upstreamProbePollTimerRef.current = null;
+    }
+  }, [apiBase, managementKey]);
+
+  const updateUpstreamBillingProbeSettings = useCallback(
+    async (
+      intervalMinutes: number,
+      healthEnabled: boolean,
+      healthModel: string,
+      autoPriorityEnabled: boolean
+    ) => {
+      const model = healthModel.trim() || 'gpt-5.5';
+      await providersApi.updateUpstreamBillingProbeSettings(
+        intervalMinutes,
+        healthEnabled,
+        model,
+        autoPriorityEnabled
+      );
       setUpstreamBillingProbeIntervalMinutes(intervalMinutes);
+      setUpstreamHealthProbeEnabled(healthEnabled);
+      setUpstreamHealthProbeModel(model);
+      setUpstreamAutoPriorityEnabled(autoPriorityEnabled);
       await refetch({ skipUpstreamBillingProbe: true });
     },
     [refetch]
   );
 
   const refreshUpstreamBillingProbe = useCallback(async () => {
-    await providersApi.refreshUpstreamBillingProbe();
-    await refetch({ skipUpstreamBillingProbe: true });
-  }, [refetch]);
+    const acknowledgement = await providersApi.refreshUpstreamBillingProbe();
+    upstreamProbePollGenerationRef.current += 1;
+    upstreamProbeRunningRef.current = upstreamProbeTaskSet([
+      ...(acknowledgement.running ?? []),
+      ...(acknowledgement.accepted ?? []),
+    ]);
+    upstreamProbePollActiveRef.current = true;
+    scheduleUpstreamProbePoll(0);
+  }, [scheduleUpstreamProbePoll]);
 
   const refreshSnapshot = useCallback(() => {
     setFetchedAt(new Date().toISOString());
@@ -457,6 +627,15 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
   }, [connected, refetch]);
 
   /* ------------------- snapshot 计算 ------------------- */
+
+  const upstreamProbeByAuthIndex = useMemo(() => {
+    const entries = new Map<string, UpstreamBillingProbeEntry>();
+    upstreamProbeItems.forEach((entry) => {
+      const authIndex = String(entry['auth-index'] ?? '').trim();
+      if (authIndex) entries.set(authIndex, entry);
+    });
+    return entries;
+  }, [upstreamProbeItems]);
 
   const snapshot = useMemo<ProviderSnapshot | null>(() => {
     if (!config) return null;
@@ -536,7 +715,15 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
                 !isQiniuCloudOpenAIProvider(item) &&
                 !isKimiOpenAIProvider(item)
               ) {
-                out.push(openaiToResource(item, index));
+                const itemWithLatestProbe = {
+                  ...item,
+                  apiKeyEntries: item.apiKeyEntries?.map((entry) => {
+                    const authIndex = String(entry.authIndex ?? '').trim();
+                    const latest = authIndex ? upstreamProbeByAuthIndex.get(authIndex) : undefined;
+                    return latest ? { ...entry, upstreamBilling: latest } : entry;
+                  }),
+                };
+                out.push(openaiToResource(itemWithLatestProbe, index));
               }
               return out;
             },
@@ -578,7 +765,7 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
       fetchedAt,
       groups,
     };
-  }, [config, fetchedAt]);
+  }, [config, fetchedAt, upstreamProbeByAuthIndex]);
 
   /* ------------------- mutations ------------------- */
 
@@ -966,7 +1153,10 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
     snapshot,
     refetch,
     upstreamBillingProbeIntervalMinutes,
-    updateUpstreamBillingProbeInterval,
+    upstreamHealthProbeEnabled,
+    upstreamHealthProbeModel,
+    upstreamAutoPriorityEnabled,
+    updateUpstreamBillingProbeSettings,
     refreshUpstreamBillingProbe,
     createProvider,
     updateProvider,
