@@ -633,4 +633,10 @@ export const providersApi = {
 
   refreshUpstreamBillingProbe: () =>
     apiClient.post<UpstreamProbeRefreshAck>('/upstream-billing-probe/refresh'),
+
+  updateUpstreamBillingProbeRate: (authIndex: string, multiplier: number) =>
+    apiClient.put<UpstreamBillingProbeEntry>('/upstream-billing-probe', {
+      'auth-index': authIndex,
+      'effective-rate-multiplier': multiplier,
+    }),
 };

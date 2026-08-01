@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   IconAlertTriangle,
@@ -41,6 +41,7 @@ interface ProviderResourceTableProps {
   onEdit: (resource: ProviderResource) => void;
   onDelete: (resource: ProviderResource) => void;
   onToggleDisabled?: (resource: ProviderResource, disabled: boolean) => void;
+  onManualRate: (authIndex: string, multiplier: number) => Promise<void>;
 }
 
 const columnWidths = ['180px', '220px', '150px', '96px', '72px', '138px', '174px', '176px'];
@@ -88,8 +89,11 @@ export function ProviderResourceTable({
   onEdit,
   onDelete,
   onToggleDisabled,
+  onManualRate,
 }: ProviderResourceTableProps) {
   const { t } = useTranslation();
+  const [editingRateId, setEditingRateId] = useState<string | null>(null);
+  const [rateInput, setRateInput] = useState('');
 
   const renderMetric = (key: string, label: string, value: number) => (
     <span key={key} className={styles.metric}>
@@ -198,12 +202,46 @@ export function ProviderResourceTable({
   };
 
   const renderUpstreamRate = (r: ProviderResource) => {
-    if (!r.upstreamBilling) {
-      return <span className={styles.baseUrl}>—</span>;
+    if (editingRateId === r.id) {
+      return (
+        <form
+          className={styles.rateEditor}
+          onSubmit={(event) => {
+            event.preventDefault();
+            const value = Number(rateInput);
+            if (!r.authIndex || !Number.isFinite(value) || value < 0) return;
+            void onManualRate(r.authIndex, value).then(() => setEditingRateId(null));
+          }}
+        >
+          <input
+            autoFocus
+            className={styles.rateInput}
+            type="number"
+            min="0"
+            step="any"
+            value={rateInput}
+            onChange={(event) => setRateInput(event.target.value)}
+            onBlur={() => setEditingRateId(null)}
+          />
+        </form>
+      );
     }
-    const rate = r.upstreamBilling.label || '—';
-    const title = r.upstreamBilling.error || r.upstreamBilling['observed-at'] || undefined;
-    return <span className={styles.baseUrl} title={title}>{rate}</span>;
+    const rate = r.upstreamBilling?.label || '—';
+    const title = r.upstreamBilling?.error || r.upstreamBilling?.['observed-at'] || undefined;
+    return (
+      <button
+        type="button"
+        className={styles.rateButton}
+        title={title}
+        disabled={!r.authIndex}
+        onClick={() => {
+          setEditingRateId(r.id);
+          setRateInput(String(r.upstreamBilling?.['effective-rate-multiplier'] ?? ''));
+        }}
+      >
+        {rate}
+      </button>
+    );
   };
 
   const renderUpstreamHealth = (r: ProviderResource) => {
