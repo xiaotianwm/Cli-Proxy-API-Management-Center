@@ -1434,8 +1434,8 @@
       "healthEnabledHint": "When disabled, refresh only reads the Sub2API rate endpoint and does not spend tokens.",
       "healthModel": "Health probe model",
       "healthModelHint": "When model health probing is enabled, sends one minimal real request with this model; defaults to gpt-5.5.",
-      "autoPriorityEnabled": "Auto-adjust priority from health",
-      "autoPriorityEnabledHint": "When enabled, each model health probe writes system priority: excellent 100, normal 50, failed 1.",
+      "autoPriorityEnabled": "Auto-adjust priority from health and rate",
+      "autoPriorityEnabledHint": "When enabled, priority is tiered by health and ranked by rate within each tier: excellent 2000–2999, normal 1000–1999, failed or disabled 1. Lower rates rank higher.",
       "intervalHint": "The backend refreshes Sub2API rates on this interval. When model health probing is enabled, each scheduled refresh also sends one model request per upstream.",
       "saved": "Rate probe settings saved",
       "invalidInterval": "Interval must be greater than 0"
