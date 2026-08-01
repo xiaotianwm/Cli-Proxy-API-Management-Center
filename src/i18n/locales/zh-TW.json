@@ -1512,8 +1512,8 @@
       "healthEnabledHint": "關閉時只刷新 Sub2API 倍率接口，不發送模型請求，不消耗 token。",
       "healthModel": "探活模型",
       "healthModelHint": "開啟模型探活後，使用此模型發送一次最小真實呼叫；預設 gpt-5.5。",
-      "autoPriorityEnabled": "依探活自動調整優先級",
-      "autoPriorityEnabledHint": "開啟後每次模型探活會寫回系統 priority：優秀 100，一般 50，失敗 1。",
+      "autoPriorityEnabled": "依探活和倍率自動調整優先級",
+      "autoPriorityEnabledHint": "開啟後依探活分層並在同層依倍率排序：優秀 2000–2999，一般 1000–1999，失敗或停用 1；倍率越低優先級越高。",
       "intervalHint": "後台會依此間隔刷新 Sub2API 上游倍率；啟用模型探活後，每次定時刷新還會對每個上游發送一次模型請求。",
       "saved": "倍率檢測設定已儲存",
       "invalidInterval": "檢測間隔必須大於 0"
