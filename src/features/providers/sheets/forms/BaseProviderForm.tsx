@@ -87,6 +87,7 @@ function buildInitialForm(
       prefix: '',
       disabled: false,
       disableCooling: false,
+      supportPromptCacheKey: brand === 'openaiCompatibility' ? false : undefined,
       priority: undefined,
       weight: undefined,
       models: [emptyModel()],
@@ -121,6 +122,7 @@ function buildInitialForm(
       prefix: cfg.prefix ?? '',
       disabled: cfg.disabled === true,
       disableCooling: cfg.disableCooling === true,
+      supportPromptCacheKey: cfg.supportPromptCacheKey === true,
       priority: cfg.priority,
       models: cfg.models?.length
         ? cfg.models.map((m) => ({
@@ -765,6 +767,22 @@ export function BaseProviderForm({
             <span className={styles.checkboxText}>
               <span>{t('providersPage.form.disableCooling')}</span>
               <small>{t('providersPage.form.disableCoolingHint')}</small>
+            </span>
+          </label>
+        ) : null}
+
+        {brand === 'openaiCompatibility' ? (
+          <label className={styles.checkboxRow}>
+            <input
+              type="checkbox"
+              className={styles.checkboxBox}
+              checked={form.supportPromptCacheKey ?? false}
+              disabled={mutating}
+              onChange={(e) => updateField('supportPromptCacheKey', e.target.checked)}
+            />
+            <span className={styles.checkboxText}>
+              <span>{t('providersPage.form.supportPromptCacheKey')}</span>
+              <small>{t('providersPage.form.supportPromptCacheKeyHint')}</small>
             </span>
           </label>
         ) : null}

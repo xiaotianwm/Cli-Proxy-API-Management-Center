@@ -228,6 +228,8 @@ export interface ProviderEntryFormInput {
   prefix: string;
   disabled: boolean;
   disableCooling?: boolean;
+  /** OpenAI Compatibility: derive a stable prompt_cache_key for supported sessions. */
+  supportPromptCacheKey?: boolean;
   priority?: number;
   weight?: number;
 

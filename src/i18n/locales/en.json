@@ -1623,6 +1623,8 @@
       "hideApiKey": "Hide API key",
       "disableCooling": "Disable cooling",
       "disableCoolingHint": "Disable failure cooldown windows only for this credential or provider",
+      "supportPromptCacheKey": "Support prompt cache key",
+      "supportPromptCacheKeyHint": "Preserve or derive a stable prompt_cache_key per session for this OpenAI-compatible upstream to improve cache reuse",
       "modelImage": "Allow image endpoints",
       "modelImageHint": "Allow this model on /v1/images/generations and /v1/images/edits",
       "showAllEntries": "Show all ({{count}})",

@@ -268,6 +268,7 @@ const buildOpenAIConfig = (
     apiKeyEntries,
     disabled: input.disabled,
     disableCooling: input.disableCooling === true,
+    supportPromptCacheKey: input.supportPromptCacheKey === true,
     headers: Object.keys(headers).length ? headers : undefined,
     models: models.length ? models : undefined,
     priority: input.priority,
@@ -760,12 +761,6 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
         case 'gemini':
           resources = (config.geminiApiKeys ?? []).reduce<ProviderResource[]>(
             (out, item, index) => {
-             if (
-               !isCode0GeminiProvider(item) &&
-               !isQiniuCloudGeminiProvider(item) &&
-               !isLmuAIGeminiProvider(item)
-             ) {
-               out.push(geminiToResource(item, index));
               if (
                 !isCode0GeminiProvider(item) &&
                 !isQiniuCloudGeminiProvider(item) &&

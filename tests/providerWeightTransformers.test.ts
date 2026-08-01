@@ -32,6 +32,17 @@ describe('provider credential weight normalization', () => {
     expect(provider?.apiKeyEntries[1]?.weight).toBeUndefined();
   });
 
+  test('reads the OpenAI-compatible prompt cache key setting', () => {
+    const provider = normalizeOpenAIProvider({
+      name: 'example',
+      'base-url': 'https://example.com/v1',
+      'api-key-entries': [],
+      'support-prompt-cache-key': true,
+    });
+
+    expect(provider?.supportPromptCacheKey).toBe(true);
+  });
+
   test('removes a cleared Vertex weight while preserving unknown fields', async () => {
     let written: unknown;
     apiClient.get = (async () => ({
@@ -100,6 +111,58 @@ describe('provider credential weight normalization', () => {
           { 'api-key': 'key-a', custom: 'keep-a' },
           { 'api-key': 'key-b', custom: 'keep-b', weight: 4 },
         ],
+      },
+    ]);
+  });
+
+  test('writes and clears the OpenAI-compatible prompt cache key setting', async () => {
+    let written: unknown;
+    apiClient.get = (async () => ({
+      'openai-compatibility': [
+        {
+          name: 'example',
+          'base-url': 'https://example.com/v1',
+          'api-key-entries': [],
+          'support-prompt-cache-key': true,
+          'future-field': 'keep',
+        },
+      ],
+    })) as typeof apiClient.get;
+    apiClient.put = (async (_url: string, data?: unknown) => {
+      written = data;
+      return undefined;
+    }) as typeof apiClient.put;
+
+    await providersApi.updateOpenAIProvider('example', 0, {
+      name: 'example',
+      baseUrl: 'https://example.com/v1',
+      apiKeyEntries: [],
+      supportPromptCacheKey: false,
+    });
+
+    expect(written).toEqual([
+      {
+        name: 'example',
+        'base-url': 'https://example.com/v1',
+        'api-key-entries': [],
+        'future-field': 'keep',
+      },
+    ]);
+
+    await providersApi.updateOpenAIProvider('example', 0, {
+      name: 'example',
+      baseUrl: 'https://example.com/v1',
+      apiKeyEntries: [],
+      supportPromptCacheKey: true,
+    });
+
+    expect(written).toEqual([
+      {
+        name: 'example',
+        'base-url': 'https://example.com/v1',
+        'api-key-entries': [],
+        'support-prompt-cache-key': true,
+        'future-field': 'keep',
       },
     ]);
   });

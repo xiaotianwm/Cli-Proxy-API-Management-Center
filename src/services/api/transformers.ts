@@ -338,6 +338,10 @@ const normalizeOpenAIProvider = (
   if (disabled !== undefined) result.disabled = disabled;
   const disableCooling = normalizeBoolean(provider['disable-cooling']);
   if (disableCooling !== undefined) result.disableCooling = disableCooling;
+  const supportPromptCacheKey = normalizeBoolean(provider['support-prompt-cache-key']);
+  if (supportPromptCacheKey !== undefined) {
+    result.supportPromptCacheKey = supportPromptCacheKey;
+  }
   const prefix = normalizePrefix(provider.prefix);
   if (prefix) result.prefix = prefix;
   if (headers) result.headers = headers;
