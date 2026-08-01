@@ -126,6 +126,7 @@ function providerKeyToResource(
   index: number
 ): ProviderResource {
   const apiKey = config.apiKey ?? '';
+  const upstreamProbe = config.upstreamBilling;
   const disabled = hasDisableAllModelsRule(config.excludedModels);
   const flags: ProviderResource['flags'] = {};
   if (brand === 'codex' || brand === 'xai') {
@@ -164,6 +165,8 @@ function providerKeyToResource(
     disabled,
     flags,
     selector,
+    upstreamBilling: buildUpstreamBillingSummary(upstreamProbe),
+    upstreamHealth: buildUpstreamHealthSummary(upstreamProbe),
     raw: config,
   };
 }

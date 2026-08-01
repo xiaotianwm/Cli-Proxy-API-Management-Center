@@ -233,6 +233,8 @@ const normalizeProviderKeyConfig = (item: unknown): ProviderKeyConfig | null => 
   if (excludedModels.length) config.excludedModels = excludedModels;
   const authIndex = normalizeAuthIndex(record?.['auth-index']);
   if (authIndex) config.authIndex = authIndex;
+  const upstreamBilling = normalizeUpstreamBillingEntry(record?.['upstream-billing']);
+  if (upstreamBilling) config.upstreamBilling = upstreamBilling;
 
   const cloakRaw = record?.cloak;
   if (isRecord(cloakRaw)) {
@@ -301,6 +303,8 @@ const normalizeGeminiKeyConfig = (item: unknown): GeminiKeyConfig | null => {
   if (excludedModels.length) config.excludedModels = excludedModels;
   const authIndex = normalizeAuthIndex(record?.['auth-index']);
   if (authIndex) config.authIndex = authIndex;
+  const upstreamBilling = normalizeUpstreamBillingEntry(record?.['upstream-billing']);
+  if (upstreamBilling) config.upstreamBilling = upstreamBilling;
   return config;
 };
 
