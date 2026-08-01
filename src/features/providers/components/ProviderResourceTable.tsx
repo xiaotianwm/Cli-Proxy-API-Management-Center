@@ -27,7 +27,7 @@ import {
 } from '@/components/providers/utils';
 import type { OpenAIProviderConfig } from '@/types';
 import type { StatusBarData } from '@/utils/recentRequests';
-import type { ProviderResource } from '../types';
+import type { ProviderManualRateTarget, ProviderResource } from '../types';
 import { isMultiProtocolSponsorBrand } from '../sponsorDefinitions';
 import styles from './ProviderResourceTable.module.scss';
 import statusBarStyles from './providerStatusBar.module.scss';
@@ -41,7 +41,7 @@ interface ProviderResourceTableProps {
   onEdit: (resource: ProviderResource) => void;
   onDelete: (resource: ProviderResource) => void;
   onToggleDisabled?: (resource: ProviderResource, disabled: boolean) => void;
-  onManualRate: (authIndex: string, multiplier: number) => Promise<void>;
+  onManualRate: (target: ProviderManualRateTarget, multiplier: number) => Promise<void>;
 }
 
 const columnWidths = ['180px', '220px', '150px', '96px', '72px', '138px', '174px', '176px'];
@@ -202,10 +202,22 @@ export function ProviderResourceTable({
   };
 
   const renderUpstreamRate = (r: ProviderResource) => {
+    const authIndex = r.authIndex || r.upstreamBilling?.['auth-index'] || '';
+    const openAIKey = r.brand === 'openaiCompatibility'
+      ? (r.raw as { apiKeyEntries?: Array<{ apiKey?: string }> })?.apiKeyEntries?.[0]?.apiKey
+      : undefined;
+    const apiKey = r.apiKey || openAIKey || '';
+    const target: ProviderManualRateTarget = {
+      authIndex: authIndex || undefined,
+      provider: r.brand,
+      baseUrl: r.baseUrl || undefined,
+      apiKey: apiKey || undefined,
+    };
+    const editable = Boolean(target.authIndex || target.apiKey);
     const saveRate = () => {
       const value = Number(rateInput);
-      if (!r.authIndex || !Number.isFinite(value) || value < 0) return;
-      void onManualRate(r.authIndex, value).then(() => setEditingRateId(null));
+      if (!editable || !Number.isFinite(value) || value < 0) return;
+      void onManualRate(target, value).then(() => setEditingRateId(null));
     };
     if (editingRateId === r.id) {
       return (
@@ -239,7 +251,7 @@ export function ProviderResourceTable({
         type="button"
         className={styles.rateButton}
         title={title}
-        disabled={!r.authIndex}
+        disabled={!editable}
         onClick={() => {
           setEditingRateId(r.id);
           setRateInput(String(r.upstreamBilling?.['effective-rate-multiplier'] ?? ''));

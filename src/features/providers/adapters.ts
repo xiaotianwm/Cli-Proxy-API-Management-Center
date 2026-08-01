@@ -88,6 +88,7 @@ const buildUpstreamBillingSummary = (
   const status = String(probe.status ?? '').trim() || 'unknown';
   const label = effective !== undefined ? `x${effective}` : status === 'ok' ? 'ok' : status;
   return {
+    'auth-index': probe['auth-index'],
     status,
     label,
     'effective-rate-multiplier': effective,
