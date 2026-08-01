@@ -11,6 +11,7 @@ import type {
 import type { ThinkingLevel } from './thinkingLevels';
 
 export interface ProviderUpstreamBillingSummary {
+  'auth-index'?: string;
   status: string;
   label: string;
   'effective-rate-multiplier'?: number;
@@ -144,6 +145,13 @@ export interface ProviderResource {
   selector: ProviderResourceSelector;
   /** 原始 raw config,Sheet 表单初始化用 */
   raw: unknown;
+}
+
+export interface ProviderManualRateTarget {
+  authIndex?: string;
+  provider?: string;
+  baseUrl?: string;
+  apiKey?: string;
 }
 
 export interface ProviderGroup {

@@ -6,7 +6,7 @@ import { CLAUDE_API_AFFILIATE_URL } from '../claudeApi';
 import { getKimiAffiliateUrl } from '../kimi';
 import { APIKEY_FUN_AFFILIATE_URL, APIKEY_FUN_DASHBOARD_URL } from '../sponsor';
 import { getSponsorProviderDefinition } from '../sponsorDefinitions';
-import type { ProviderGroup, ProviderResource } from '../types';
+import type { ProviderGroup, ProviderManualRateTarget, ProviderResource } from '../types';
 import { ProviderResourceTable } from './ProviderResourceTable';
 import { ProviderResourceToolbar } from './ProviderResourceToolbar';
 import type { ProviderSortBy, SortDir } from '../types';
@@ -36,7 +36,7 @@ interface ProviderResourcePanelProps {
   onDelete: (resource: ProviderResource) => void;
   onToggleDisabled?: (resource: ProviderResource, disabled: boolean) => void;
   onCreate: () => void;
-  onManualRate: (authIndex: string, multiplier: number) => Promise<void>;
+  onManualRate: (target: ProviderManualRateTarget, multiplier: number) => Promise<void>;
 }
 
 export function ProviderResourcePanel({

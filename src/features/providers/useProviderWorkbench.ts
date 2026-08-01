@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { providersApi } from '@/services/api';
 import { getErrorMessage } from '@/utils/helpers';
+import { maskApiKey } from '@/utils/format';
 import { useAuthStore, useConfigStore } from '@/stores';
 import {
   stripDisableAllModelsRule,
@@ -38,6 +39,7 @@ import type {
   ProviderBrand,
   ProviderEntryFormInput,
   ProviderGroup,
+  ProviderManualRateTarget,
   ProviderResource,
   ProviderSnapshot,
   SponsorKeyEntryInput,
@@ -96,7 +98,7 @@ export interface UseProviderWorkbenchResult {
     autoPriorityEnabled: boolean
   ) => Promise<void>;
   refreshUpstreamBillingProbe: () => Promise<void>;
-  updateUpstreamBillingProbeRate: (authIndex: string, multiplier: number) => Promise<void>;
+  updateUpstreamBillingProbeRate: (target: ProviderManualRateTarget, multiplier: number) => Promise<void>;
 
   createProvider: (brand: ProviderBrand, input: ProviderEntryFormInput) => Promise<void>;
   updateProvider: (resource: ProviderResource, input: ProviderEntryFormInput) => Promise<void>;
@@ -688,10 +690,10 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
     scheduleUpstreamProbePoll(0);
   }, [scheduleUpstreamProbePoll]);
 
-  const updateUpstreamBillingProbeRate = useCallback(async (authIndex: string, multiplier: number) => {
-    const result = await providersApi.updateUpstreamBillingProbeRate(authIndex, multiplier);
+  const updateUpstreamBillingProbeRate = useCallback(async (target: ProviderManualRateTarget, multiplier: number) => {
+    const result = await providersApi.updateUpstreamBillingProbeRate(target, multiplier);
     setUpstreamProbeItems((items) => {
-      const next = items.filter((item) => item['auth-index'] !== authIndex);
+      const next = items.filter((item) => item['auth-index'] !== result['auth-index']);
       next.push(result);
       return next;
     });
@@ -719,13 +721,35 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
     return entries;
   }, [upstreamProbeItems]);
 
-  const withLatestUpstreamProbe = useCallback(
-    <T extends { authIndex?: string; upstreamBilling?: UpstreamBillingProbeEntry }>(item: T): T => {
+  const findLatestUpstreamProbe = useCallback(
+    (item: { authIndex?: string | null; apiKey?: string | null; apiKeyPreview?: string | null; baseUrl?: string | null }) => {
       const authIndex = String(item.authIndex ?? '').trim();
-      const latest = authIndex ? upstreamProbeByAuthIndex.get(authIndex) : undefined;
-      return latest ? { ...item, upstreamBilling: latest } : item;
+      if (authIndex) {
+        const exact = upstreamProbeByAuthIndex.get(authIndex);
+        if (exact) return exact;
+      }
+      const baseUrl = String(item.baseUrl ?? '').trim().replace(/\/+$/, '').toLowerCase();
+      const preview = String(item.apiKeyPreview ?? maskApiKey(String(item.apiKey ?? ''))).trim();
+      if (!baseUrl || !preview) return undefined;
+      const start = preview.slice(0, 2);
+      const end = preview.slice(-2);
+      return upstreamProbeItems.find((entry) => {
+        const entryBase = String(entry['base-url'] ?? '').trim().replace(/\/+$/, '').toLowerCase();
+        const entryPreview = String(entry['api-key-preview'] ?? '').trim();
+        return entryBase === baseUrl && entryPreview.startsWith(start) && entryPreview.endsWith(end);
+      });
     },
-    [upstreamProbeByAuthIndex]
+    [upstreamProbeByAuthIndex, upstreamProbeItems]
+  );
+
+  const withLatestUpstreamProbe = useCallback(
+    <T extends { authIndex?: string; apiKey?: string | null; apiKeyPreview?: string | null; baseUrl?: string | null; upstreamBilling?: UpstreamBillingProbeEntry }>(item: T): T => {
+      const latest = findLatestUpstreamProbe(item);
+      return latest
+        ? { ...item, authIndex: latest['auth-index'], upstreamBilling: latest }
+        : item;
+    },
+    [findLatestUpstreamProbe]
   );
 
   const snapshot = useMemo<ProviderSnapshot | null>(() => {
@@ -822,9 +846,12 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
                 const itemWithLatestProbe = {
                   ...item,
                   apiKeyEntries: item.apiKeyEntries?.map((entry) => {
-                    const authIndex = String(entry.authIndex ?? '').trim();
-                    const latest = authIndex ? upstreamProbeByAuthIndex.get(authIndex) : undefined;
-                    return latest ? { ...entry, upstreamBilling: latest } : entry;
+                    const latest = findLatestUpstreamProbe({
+                      authIndex: entry.authIndex,
+                      apiKeyPreview: entry.apiKey ? maskApiKey(entry.apiKey) : null,
+                      baseUrl: item.baseUrl,
+                    });
+                    return latest ? { ...entry, authIndex: latest['auth-index'], upstreamBilling: latest } : entry;
                   }),
                 };
                 out.push(openaiToResource(itemWithLatestProbe, index));
@@ -874,7 +901,7 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
       fetchedAt,
       groups,
     };
-  }, [config, fetchedAt, upstreamProbeByAuthIndex, withLatestUpstreamProbe]);
+  }, [config, fetchedAt, findLatestUpstreamProbe, withLatestUpstreamProbe]);
 
   /* ------------------- mutations ------------------- */
 
