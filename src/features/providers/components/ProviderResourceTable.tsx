@@ -202,15 +202,18 @@ export function ProviderResourceTable({
   };
 
   const renderUpstreamRate = (r: ProviderResource) => {
+    const saveRate = () => {
+      const value = Number(rateInput);
+      if (!r.authIndex || !Number.isFinite(value) || value < 0) return;
+      void onManualRate(r.authIndex, value).then(() => setEditingRateId(null));
+    };
     if (editingRateId === r.id) {
       return (
         <form
           className={styles.rateEditor}
           onSubmit={(event) => {
             event.preventDefault();
-            const value = Number(rateInput);
-            if (!r.authIndex || !Number.isFinite(value) || value < 0) return;
-            void onManualRate(r.authIndex, value).then(() => setEditingRateId(null));
+            saveRate();
           }}
         >
           <input
@@ -221,7 +224,10 @@ export function ProviderResourceTable({
             step="any"
             value={rateInput}
             onChange={(event) => setRateInput(event.target.value)}
-            onBlur={() => setEditingRateId(null)}
+            onBlur={saveRate}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setEditingRateId(null);
+            }}
           />
         </form>
       );

@@ -4,7 +4,11 @@
 
 import { apiClient } from './client';
 import { isRecord } from '@/utils/helpers';
-import { normalizeOpenAIProvider, normalizeProviderKeyConfig } from './transformers';
+import {
+  normalizeGeminiKeyConfig,
+  normalizeOpenAIProvider,
+  normalizeProviderKeyConfig,
+} from './transformers';
 import type {
   GeminiKeyConfig,
   OpenAIProviderConfig,
@@ -456,6 +460,36 @@ const serializeOpenAIProvider = (provider: OpenAIProviderConfig) => {
 };
 
 export const providersApi = {
+  async getGeminiConfigs(): Promise<GeminiKeyConfig[]> {
+    const data = await apiClient.get('/gemini-api-key');
+    const list = extractArrayPayload(data, 'gemini-api-key');
+    return list.map((item) => normalizeGeminiKeyConfig(item)).filter(Boolean) as GeminiKeyConfig[];
+  },
+
+  async getInteractionsConfigs(): Promise<GeminiKeyConfig[]> {
+    const data = await apiClient.get('/interactions-api-key');
+    const list = extractArrayPayload(data, 'interactions-api-key');
+    return list.map((item) => normalizeGeminiKeyConfig(item)).filter(Boolean) as GeminiKeyConfig[];
+  },
+
+  async getCodexConfigs(): Promise<ProviderKeyConfig[]> {
+    const data = await apiClient.get('/codex-api-key');
+    const list = extractArrayPayload(data, 'codex-api-key');
+    return list.map((item) => normalizeProviderKeyConfig(item)).filter(Boolean) as ProviderKeyConfig[];
+  },
+
+  async getXAIConfigs(): Promise<ProviderKeyConfig[]> {
+    const data = await apiClient.get('/xai-api-key');
+    const list = extractArrayPayload(data, 'xai-api-key');
+    return list.map((item) => normalizeProviderKeyConfig(item)).filter(Boolean) as ProviderKeyConfig[];
+  },
+
+  async getClaudeConfigs(): Promise<ProviderKeyConfig[]> {
+    const data = await apiClient.get('/claude-api-key');
+    const list = extractArrayPayload(data, 'claude-api-key');
+    return list.map((item) => normalizeProviderKeyConfig(item)).filter(Boolean) as ProviderKeyConfig[];
+  },
+
   createGeminiKey: (config: GeminiKeyConfig) =>
     mutateLatestProviderList('gemini-api-key', (latestItems) =>
       appendLatestProviderRecord(latestItems, serializeGeminiKey(config), (raw, payload) =>
