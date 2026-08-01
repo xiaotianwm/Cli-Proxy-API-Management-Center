@@ -1028,6 +1028,8 @@
           "disable_cooling": "禁用冷却调度",
           "disable_cooling_desc": "全局禁用认证/模型失败后的冷却窗口",
           "session_affinity": "会话粘性路由",
+          "session_affinity_preserve_priority_drop": "已绑定会话忽略优先级下降",
+          "session_affinity_preserve_priority_drop_desc": "原上游仍可用时保持现有会话绑定；禁用、冷却、限流或模型不可用时仍自动切换",
           "ws_auth": "WebSocket 认证",
           "ws_auth_desc": "启用 WebSocket 连接认证 (/v1/ws)"
         },

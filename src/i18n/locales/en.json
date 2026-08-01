@@ -1028,6 +1028,8 @@
           "disable_cooling": "Disable Cooling",
           "disable_cooling_desc": "Globally disable auth/model cooldown windows after failures",
           "session_affinity": "Session Affinity Routing",
+          "session_affinity_preserve_priority_drop": "Preserve Bound Sessions Across Priority Drops",
+          "session_affinity_preserve_priority_drop_desc": "Keep an existing session on its usable upstream; disabled, cooled-down, rate-limited, or model-unavailable credentials still fail over",
           "ws_auth": "WebSocket Authentication",
           "ws_auth_desc": "Enable WebSocket authentication (/v1/ws)"
         },

@@ -204,6 +204,13 @@ export const CONFIG_FIELD_SEARCH_INDEX: ConfigFieldSearchEntry[] = [
     yamlKeys: ['routing', 'session-affinity'],
   },
   {
+    fieldId: 'routingSessionAffinityPreservePriorityDrop',
+    sectionId: 'network',
+    labelKey: L('sections.network.session_affinity_preserve_priority_drop'),
+    hintKey: L('sections.network.session_affinity_preserve_priority_drop_desc'),
+    yamlKeys: ['routing', 'session-affinity-preserve-priority-drop'],
+  },
+  {
     fieldId: 'wsAuth',
     sectionId: 'network',
     labelKey: L('sections.network.ws_auth'),

@@ -918,6 +918,7 @@ function getNextDirtyFields(
       'routingStrategy',
       'routingSessionAffinity',
       'routingSessionAffinityTTL',
+      'routingSessionAffinityPreservePriorityDrop',
     ] as Array<keyof VisualConfigValues>
   ).forEach(updateScalarDirty);
 
@@ -1177,6 +1178,11 @@ export function useVisualConfig() {
               : typeof routing?.['sessionAffinityTTL'] === 'string'
                 ? routing['sessionAffinityTTL']
                 : '',
+        routingSessionAffinityPreservePriorityDrop: Boolean(
+          routing?.['session-affinity-preserve-priority-drop'] ??
+          routing?.sessionAffinityPreservePriorityDrop ??
+          routing?.['sessionAffinityPreservePriorityDrop']
+        ),
 
         payloadDefaultRules: parsePayloadRules(payload?.default),
         payloadDefaultRawRules: parseRawPayloadRules(payload?.['default-raw']),
@@ -1472,7 +1478,8 @@ export function useVisualConfig() {
         const routingDirty =
           dirtyFields.has('routingStrategy') ||
           dirtyFields.has('routingSessionAffinity') ||
-          dirtyFields.has('routingSessionAffinityTTL');
+          dirtyFields.has('routingSessionAffinityTTL') ||
+          dirtyFields.has('routingSessionAffinityPreservePriorityDrop');
         if (routingDirty) {
           ensureMapInDoc(doc, ['routing']);
           if (dirtyFields.has('routingStrategy')) {
@@ -1486,6 +1493,13 @@ export function useVisualConfig() {
               doc,
               ['routing', 'session-affinity-ttl'],
               values.routingSessionAffinityTTL
+            );
+          }
+          if (dirtyFields.has('routingSessionAffinityPreservePriorityDrop')) {
+            setBooleanInDoc(
+              doc,
+              ['routing', 'session-affinity-preserve-priority-drop'],
+              values.routingSessionAffinityPreservePriorityDrop
             );
           }
           deleteIfMapEmpty(doc, ['routing']);
