@@ -436,6 +436,11 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
       const probeGeneration = upstreamProbePollGenerationRef.current;
       try {
         const configPromise = fetchConfig(true);
+        const geminiPromise = providersApi.getGeminiConfigs();
+        const interactionsPromise = providersApi.getInteractionsConfigs();
+        const codexPromise = providersApi.getCodexConfigs();
+        const xaiPromise = providersApi.getXAIConfigs();
+        const claudePromise = providersApi.getClaudeConfigs();
         const vertexPromise = providersApi.getVertexConfigs();
         const openaiPromise = providersApi.getOpenAIProviders();
         const billingPromise: Promise<UpstreamBillingProbePayload | undefined> =
@@ -443,14 +448,44 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
             ? Promise.resolve(undefined)
             : providersApi.getUpstreamBillingProbe();
 
-        const [configResult, vertexResult, openaiResult, billingResult] = await Promise.allSettled([
+        const [
+          configResult,
+          geminiResult,
+          interactionsResult,
+          codexResult,
+          xaiResult,
+          claudeResult,
+          vertexResult,
+          openaiResult,
+          billingResult,
+        ] = await Promise.allSettled([
           configPromise,
+          geminiPromise,
+          interactionsPromise,
+          codexPromise,
+          xaiPromise,
+          claudePromise,
           vertexPromise,
           openaiPromise,
           billingPromise,
         ] as const);
         if (configResult.status !== 'fulfilled') {
           throw configResult.reason;
+        }
+        if (geminiResult.status === 'fulfilled') {
+          updateConfigValue('gemini-api-key', geminiResult.value || []);
+        }
+        if (interactionsResult.status === 'fulfilled') {
+          updateConfigValue('interactions-api-key', interactionsResult.value || []);
+        }
+        if (codexResult.status === 'fulfilled') {
+          updateConfigValue('codex-api-key', codexResult.value || []);
+        }
+        if (xaiResult.status === 'fulfilled') {
+          updateConfigValue('xai-api-key', xaiResult.value || []);
+        }
+        if (claudeResult.status === 'fulfilled') {
+          updateConfigValue('claude-api-key', claudeResult.value || []);
         }
         if (vertexResult.status === 'fulfilled') {
           updateConfigValue('vertex-api-key', vertexResult.value || []);
@@ -735,7 +770,7 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
           resources = (config.claudeApiKeys ?? []).reduce<ProviderResource[]>(
             (out, item, index) => {
               if (isClaudeApiProvider(item)) {
-                out.push(claudeApiToResource(item, index));
+                out.push(claudeApiToResource(withLatestUpstreamProbe(item), index));
               }
               return out;
             },

@@ -38,6 +38,7 @@ describe('OpenAI upstream probe selection', () => {
   test('keeps billing and health on the first key when no provider auth index is present', () => {
     const resource = openaiToResource(provider, 0);
 
+    expect(resource.authIndex).toBe('provider-a');
     expect(resource.upstreamBilling?.label).toBe('x1');
     expect(resource.upstreamHealth).toBeUndefined();
   });
