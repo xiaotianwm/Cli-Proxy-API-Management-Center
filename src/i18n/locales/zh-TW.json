@@ -1032,6 +1032,8 @@
           "disable_cooling": "停用冷卻調度",
           "disable_cooling_desc": "全域停用驗證/模型失敗後的冷卻視窗",
           "session_affinity": "會話黏性路由",
+          "session_affinity_preserve_priority_drop": "已綁定會話忽略優先級下降",
+          "session_affinity_preserve_priority_drop_desc": "原上游仍可用時保持現有會話綁定；停用、冷卻、限流或模型不可用時仍自動切換",
           "ws_auth": "WebSocket 驗證",
           "ws_auth_desc": "啟用 WebSocket 連線驗證（/v1/ws）"
         },

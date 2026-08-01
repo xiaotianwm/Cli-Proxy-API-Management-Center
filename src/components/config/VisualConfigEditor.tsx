@@ -1257,6 +1257,21 @@ export function VisualConfigEditor({
                       onChange={(routingSessionAffinity) => onChange({ routingSessionAffinity })}
                     />
                   </FieldAnchor>
+                  <FieldAnchor fieldId="routingSessionAffinityPreservePriorityDrop">
+                    <ToggleRow
+                      title={t(
+                        'config_management.visual.sections.network.session_affinity_preserve_priority_drop'
+                      )}
+                      description={t(
+                        'config_management.visual.sections.network.session_affinity_preserve_priority_drop_desc'
+                      )}
+                      checked={values.routingSessionAffinityPreservePriorityDrop}
+                      disabled={disabled || !values.routingSessionAffinity}
+                      onChange={(routingSessionAffinityPreservePriorityDrop) =>
+                        onChange({ routingSessionAffinityPreservePriorityDrop })
+                      }
+                    />
+                  </FieldAnchor>
                   <FieldAnchor fieldId="wsAuth">
                     <ToggleRow
                       title={t('config_management.visual.sections.network.ws_auth')}

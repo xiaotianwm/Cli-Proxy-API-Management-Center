@@ -39,4 +39,41 @@ describe('visual config weighted routing strategy', () => {
 
     expect(parseYaml(result)).toEqual({ routing: { strategy: 'weighted-round-robin' } });
   });
+
+  test('reads and writes session affinity priority-drop preservation', () => {
+    function Harness() {
+      const visualConfig = useVisualConfig();
+      const [phase, setPhase] = useState(0);
+
+      if (phase === 0) {
+        visualConfig.loadVisualValuesFromYaml(
+          'routing:\n  session-affinity: true\n  session-affinity-preserve-priority-drop: true\n'
+        );
+        setPhase(1);
+      } else if (phase === 1) {
+        visualConfig.setVisualValues({ routingSessionAffinityPreservePriorityDrop: false });
+        setPhase(2);
+      } else {
+        return createElement(
+          'pre',
+          null,
+          visualConfig.applyVisualChangesToYaml(
+            'routing:\n  session-affinity: true\n  session-affinity-preserve-priority-drop: true\n'
+          )
+        );
+      }
+
+      return null;
+    }
+
+    const markup = renderToStaticMarkup(createElement(Harness));
+    const result = markup.slice('<pre>'.length, -'</pre>'.length);
+
+    expect(parseYaml(result)).toEqual({
+      routing: {
+        'session-affinity': true,
+        'session-affinity-preserve-priority-drop': false,
+      },
+    });
+  });
 });

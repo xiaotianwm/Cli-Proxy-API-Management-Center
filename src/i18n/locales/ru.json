@@ -993,6 +993,8 @@
           "disable_cooling": "Отключить cooldown",
           "disable_cooling_desc": "Глобально отключить окна охлаждения auth/model после ошибок",
           "session_affinity": "Маршрутизация с привязкой к сессии",
+          "session_affinity_preserve_priority_drop": "Сохранять привязку при снижении приоритета",
+          "session_affinity_preserve_priority_drop_desc": "Сохранять доступный upstream для текущей сессии; при отключении, cooldown, лимите или недоступной модели выполняется переключение",
           "ws_auth": "Аутентификация WebSocket",
           "ws_auth_desc": "Включить аутентификацию WebSocket (/v1/ws)"
         },
