@@ -198,9 +198,6 @@ export function ProviderResourceTable({
   };
 
   const renderUpstreamRate = (r: ProviderResource) => {
-    if (r.brand !== 'openaiCompatibility') {
-      return <span className={styles.baseUrl}>—</span>;
-    }
     if (!r.upstreamBilling) {
       return <span className={styles.baseUrl}>—</span>;
     }
@@ -210,9 +207,6 @@ export function ProviderResourceTable({
   };
 
   const renderUpstreamHealth = (r: ProviderResource) => {
-    if (r.brand !== 'openaiCompatibility') {
-      return <span className={styles.baseUrl}>—</span>;
-    }
     const history = (r.upstreamHealth?.history ?? []).slice(-HEALTH_HISTORY_SLOTS);
     const slots: Array<(typeof history)[number] | null> = [
       ...Array.from({ length: HEALTH_HISTORY_SLOTS - history.length }, () => null),

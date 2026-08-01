@@ -70,6 +70,7 @@ export interface GeminiKeyConfig {
   excludedModels?: string[];
   disableCooling?: boolean;
   authIndex?: string;
+  upstreamBilling?: UpstreamBillingProbeEntry;
 }
 
 export interface ProviderKeyConfig {
@@ -87,6 +88,7 @@ export interface ProviderKeyConfig {
   cloak?: CloakConfig;
   experimentalCchSigning?: boolean;
   authIndex?: string;
+  upstreamBilling?: UpstreamBillingProbeEntry;
 }
 
 export interface OpenAIProviderConfig {

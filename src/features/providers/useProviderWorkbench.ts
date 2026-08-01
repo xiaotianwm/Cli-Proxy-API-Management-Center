@@ -674,6 +674,15 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
     return entries;
   }, [upstreamProbeItems]);
 
+  const withLatestUpstreamProbe = useCallback(
+    <T extends { authIndex?: string; upstreamBilling?: UpstreamBillingProbeEntry }>(item: T): T => {
+      const authIndex = String(item.authIndex ?? '').trim();
+      const latest = authIndex ? upstreamProbeByAuthIndex.get(authIndex) : undefined;
+      return latest ? { ...item, upstreamBilling: latest } : item;
+    },
+    [upstreamProbeByAuthIndex]
+  );
+
   const snapshot = useMemo<ProviderSnapshot | null>(() => {
     if (!config) return null;
     const groups: ProviderGroup[] = PROVIDER_BRAND_ORDER.map((brand) => {
@@ -682,12 +691,18 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
         case 'gemini':
           resources = (config.geminiApiKeys ?? []).reduce<ProviderResource[]>(
             (out, item, index) => {
+             if (
+               !isCode0GeminiProvider(item) &&
+               !isQiniuCloudGeminiProvider(item) &&
+               !isLmuAIGeminiProvider(item)
+             ) {
+               out.push(geminiToResource(item, index));
               if (
                 !isCode0GeminiProvider(item) &&
                 !isQiniuCloudGeminiProvider(item) &&
                 !isLmuAIGeminiProvider(item)
               ) {
-                out.push(geminiToResource(item, index));
+                out.push(geminiToResource(withLatestUpstreamProbe(item), index));
               }
               return out;
             },
@@ -696,7 +711,7 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
           break;
         case 'interactions':
           resources = (config.interactionsApiKeys ?? []).map((item, index) =>
-            interactionsToResource(item, index)
+            interactionsToResource(withLatestUpstreamProbe(item), index)
           );
           break;
         case 'codex':
@@ -708,13 +723,13 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
               !isQiniuCloudCodexProvider(item) &&
               !isLmuAICodexProvider(item)
             ) {
-              out.push(codexToResource(item, index));
+              out.push(codexToResource(withLatestUpstreamProbe(item), index));
             }
             return out;
           }, []);
           break;
         case 'xai':
-          resources = (config.xaiApiKeys ?? []).map((item, index) => xaiToResource(item, index));
+          resources = (config.xaiApiKeys ?? []).map((item, index) => xaiToResource(withLatestUpstreamProbe(item), index));
           break;
         case 'claude':
           resources = (config.claudeApiKeys ?? []).reduce<ProviderResource[]>(
@@ -728,7 +743,7 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
                 !isKimiClaudeProvider(item) &&
                 !isClaudeApiProvider(item)
               ) {
-                out.push(claudeToResource(item, index));
+                out.push(claudeToResource(withLatestUpstreamProbe(item), index));
               }
               return out;
             },
@@ -747,7 +762,7 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
           );
           break;
         case 'vertex':
-          resources = (config.vertexApiKeys ?? []).map((c, i) => vertexToResource(c, i));
+          resources = (config.vertexApiKeys ?? []).map((c, i) => vertexToResource(withLatestUpstreamProbe(c), i));
           break;
         case 'openaiCompatibility':
           resources = (config.openaiCompatibility ?? []).reduce<ProviderResource[]>(
@@ -814,7 +829,7 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
       fetchedAt,
       groups,
     };
-  }, [config, fetchedAt, upstreamProbeByAuthIndex]);
+  }, [config, fetchedAt, upstreamProbeByAuthIndex, withLatestUpstreamProbe]);
 
   /* ------------------- mutations ------------------- */
 
