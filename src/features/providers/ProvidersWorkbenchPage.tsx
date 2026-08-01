@@ -535,6 +535,7 @@ export function ProvidersWorkbenchPage({ fixedBrand }: ProvidersWorkbenchPagePro
             onEdit={openEdit}
             onDelete={handleDelete}
             onToggleDisabled={handleToggleDisabled}
+            onManualRate={workbench.updateUpstreamBillingProbeRate}
             onCreate={openCreate}
           />
         )}

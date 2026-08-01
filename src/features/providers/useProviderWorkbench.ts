@@ -96,6 +96,7 @@ export interface UseProviderWorkbenchResult {
     autoPriorityEnabled: boolean
   ) => Promise<void>;
   refreshUpstreamBillingProbe: () => Promise<void>;
+  updateUpstreamBillingProbeRate: (authIndex: string, multiplier: number) => Promise<void>;
 
   createProvider: (brand: ProviderBrand, input: ProviderEntryFormInput) => Promise<void>;
   updateProvider: (resource: ProviderResource, input: ProviderEntryFormInput) => Promise<void>;
@@ -651,6 +652,15 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
     upstreamProbePollActiveRef.current = true;
     scheduleUpstreamProbePoll(0);
   }, [scheduleUpstreamProbePoll]);
+
+  const updateUpstreamBillingProbeRate = useCallback(async (authIndex: string, multiplier: number) => {
+    const result = await providersApi.updateUpstreamBillingProbeRate(authIndex, multiplier);
+    setUpstreamProbeItems((items) => {
+      const next = items.filter((item) => item['auth-index'] !== authIndex);
+      next.push(result);
+      return next;
+    });
+  }, []);
 
   const refreshSnapshot = useCallback(() => {
     setFetchedAt(new Date().toISOString());
@@ -1228,6 +1238,7 @@ export function useProviderWorkbench(): UseProviderWorkbenchResult {
     upstreamAutoPriorityEnabled,
     updateUpstreamBillingProbeSettings,
     refreshUpstreamBillingProbe,
+    updateUpstreamBillingProbeRate,
     createProvider,
     updateProvider,
     deleteProvider,
